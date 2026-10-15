@@ -1,0 +1,140 @@
+Name,Year,Creator / Steward,Primary domain,Regions / systems
+C,1972,"Dennis Ritchie, Bell Labs (US)","OS kernels, embedded, systems",worldwide
+Python,1991,Guido van Rossum (NL) / PSF,"AI, data, web, scripting",worldwide
+JavaScript,1995,Brendan Eich (US) / Ecma TC39,"browsers, web servers",worldwide
+Java,1995,James Gosling (US) / Oracle,"enterprise, Android",worldwide
+C++,1985,Bjarne Stroustrup (DK) / ISO WG21,"systems, games, finance",worldwide
+C#,2000,Anders Hejlsberg (DK) / Microsoft,"enterprise, web, games",US + worldwide
+Go,2009,Google (US),cloud infrastructure,worldwide
+Rust,2010,Graydon Hoare (US) / Rust Foundation,"systems, web, safety-critical",worldwide
+TypeScript,2012,Microsoft,typed web,worldwide
+Swift,2014,Apple,"iOS, macOS",worldwide
+Kotlin,2011,JetBrains (CZ),"Android, server",worldwide
+Ruby,1995,Yukihiro Matsumoto (JP),web (Rails),worldwide
+PHP,1995,Rasmus Lerdorf (DK) / PHP Foundation,web servers,worldwide
+Perl,1987,Larry Wall (US),"sysadmin, text",legacy
+Bash/sh,1989,Brian Fox (US) / GNU,automation,"servers, embedded"
+SQL,1974,Chamberlin & Boyce (US) / ISO-IEC,databases,worldwide
+Fortran,1957,John Backus (US) / IBM,"HPC, science",national labs
+COBOL,1959,Hopper lineage (US) / ISO,"banking, government",legacy enterprise
+Lisp,1958,John McCarthy (US),"AI, research",research
+Scheme,1975,Sussman & Steele (US) / MIT,"education, research",academia
+Common Lisp,1984,ANSI,"AI, research",research
+Clojure,2007,Rich Hickey (US),functional JVM,startups
+Emacs Lisp,1985,FSF,editor automation,developer tools
+Haskell,1990,Haskell Committee,functional research,"research, fintech"
+OCaml,1996,INRIA (FR),"research, finance","FR, industry"
+F#,2005,Don Syme (AU) / Microsoft,functional .NET,enterprise
+Scala,2004,Martin Odersky (CH) / EPFL,data (Spark),worldwide
+Erlang,1986,Ericsson (SE),"telecom, distributed",telecom
+Elixir,2011,Jose Valim (BR),"web, distributed",startups
+R,1993,Ihaka & Gentleman (NZ),statistics,"science, pharma"
+MATLAB,1984,MathWorks (US),engineering,engineering
+Julia,2012,MIT (US),numerics,science
+SAS,1976,SAS Institute (US),regulated stats,"pharma, government"
+Dart,2011,Google,Flutter apps,mobile
+Lua,1993,PUC-Rio (BR),"games, embedding","games, embedded"
+Objective-C,1984,Brad Cox (US) / Apple,Apple legacy,legacy Apple
+Delphi/Object Pascal,1995,Borland->Embarcadero (US),Windows apps,"legacy, education"
+Pascal,1970,Niklaus Wirth (CH),teaching,legacy education
+Modula-2 / Oberon,1978/1987,Niklaus Wirth (CH),systems research,legacy
+Ada,1980,Jean Ichbiah (FR) / US DoD,"defense, avionics","defense, aerospace"
+Assembly x86,1978,Intel / AMD,low-level,systems
+Assembly ARM,1985,Arm Holdings (UK),"mobile, embedded",embedded
+VHDL,1987,IEEE,hardware description,semiconductors
+Verilog / SystemVerilog,1984/2005,Accellera / IEEE,"hardware, verification",semiconductors
+CUDA,2007,Nvidia (US),GPU compute,AI datacenters
+OpenCL C,2009,Khronos,"GPU, accelerators",HPC
+Triton,2021,OpenAI,GPU kernels,AI
+Metal,2014,Apple,GPU,Apple platforms
+HLSL / GLSL / WGSL,2000s,Microsoft / Khronos / W3C,shading,graphics
+WebAssembly,2017,W3C Wasm CG,portable low-level IR,"web, edge, plugins"
+LLVM IR,2003,"LLVM, U. Illinois (US)",compiler IR,all toolchains
+JVM bytecode,1995,Oracle,JVM IR,worldwide
+CIL,2002,Microsoft,.NET IR,Windows ecosystem
+Solidity,2014,Ethereum Foundation,smart contracts,blockchain
+Move,2019,Meta -> Aptos / Sui,smart contracts,blockchain
+Zig,2016,Andrew Kelley (US),systems,emerging systems
+Nim,2008,Andreas Rumpf (DE),"systems, scripting",niche
+Crystal,2014,Manas (AR),typed web,niche
+Mojo,2023,Chris Lattner / Modular (US),AI workloads,AI infra
+Carbon,2022,Google,C++ successor (exploratory),experimental
+Groovy,2003,Apache,JVM scripting,legacy
+Scala.js / Kotlin-Native,2010s,respective communities,cross-compile,niche
+Visual Basic .NET,2001,Microsoft,Windows automation,legacy
+VBA,1993,Microsoft,Office automation,enterprise
+PowerShell,2006,Microsoft,Windows automation,enterprise Windows
+Tcl,1988,John Ousterhout (US),embedding,legacy
+Prolog,1972,"Colmerauer (FR), Kowalski (UK)",logic AI,research
+Smalltalk,1972,"Alan Kay, Xerox PARC (US)",OOP research,legacy
+Simula,1967,Nygaard & Dahl (NO),first OOP,historical
+APL,1966,Kenneth Iverson (CA / US),array programming,"finance, research"
+J,1990,Iverson (US),array,niche
+K / q (kdb+),1993,Arthur Whitney (US),time-series finance,finance
+Forth,1970,Charles Moore (US),"embedded, spacecraft","embedded, space"
+Brainfuck,1993,Urban Muller (CH),esoteric; 8-char instruction set,esolang prior art
+GolfScript / CJam / Pyth,2000s,esolang community,code golf,prior art for char-minimization
+sed,1974,Bell Labs (US),stream editing,Unix
+awk,1977,"Aho, Weinberger, Kernighan (US)",text processing,Unix
+Makefile,1976,Stuart Feldman (US) / GNU,build control,build systems
+CMake,2000,Kitware (US),build control,build systems
+Nix (language),2003,Eelco Dolstra (NL),package mgmt,Nix ecosystem
+Regex,1951/1968,"Kleene, Thompson (US)",pattern DSL,everywhere
+TeX / LaTeX,1978,Donald Knuth (US),typesetting,academia
+PostScript,1982,Adobe (US),print / graphics,printing
+Wolfram Language,1988,Stephen Wolfram (UK/US),symbolic math,research
+Mathematica notebooks,1988,Wolfram Research,research docs,research
+LabVIEW (G),1986,National Instruments (US),graphical dataflow,"engineering, test"
+Scratch,2003,MIT (US),education,schools
+Elm,2012,Evan Czaplicki (US),frontend web,niche web
+PureScript,2013,community,typed frontend,niche
+ReScript / ReasonML,2016/2016,Jordan Walke (US),typed JS,niche
+Gleam,2019,Louis Pilfold (UK),BEAM typed,emerging
+Pony,2015,Sylvan Clebsch (FR),actor systems,research
+Ballerina,2017,WSO2 (LK),integration,enterprise integration
+Chapel,2009,Cray (US),HPC,supercomputing
+Futhark,2013,DIKU (DK),GPU functional,research HPC
+Cilk,1994,MIT (US),parallel HPC,research
+X10,2004,IBM,parallel research,research
+Julia covered; Squeak,1996,Squeak community,education,legacy
+GDScript,2014,Godot community (AR/CH),game scripting,indie games
+Haxe,2005,Nicolas Cannasse (FR),cross-platform,indie games
+ABAP,1983,SAP (DE),SAP business apps,SAP enterprise
+1C,1991,1C Company (RU),"ERP, accounting","Russia, CIS"
+REXX,1979,Mike Cowlishaw (UK) / IBM,mainframe scripting,mainframes
+JCL,1964,IBM,batch control,mainframes
+MUMPS (M),1966,Massachusetts General Hospital (US),healthcare records,hospitals
+dBase / xBase / Clipper,1979+,Ashton-Tate (US),DB apps,legacy business
+FoxPro,1989,Microsoft,DB apps,legacy business
+RPG,1959,IBM,reporting,AS/400 enterprise
+PL/I,1964,IBM,enterprise legacy,mainframes
+ALGOL 60,1960,IFIP committee,algorithms,historical
+BASIC,1964,Kemeny & Kurtz (US),education,"legacy, hobbyist"
+Plankalkul,1942-45,Konrad Zuse (DE),first program design,historical
+Short Code,1949,John Mauchly (US),first HLL on hardware,historical
+Autocode,1952,Alick Glennie (UK),early compiler,historical
+IPL,1956,"Newell, Shaw, Simon (US)",early AI,historical
+JOSS,1963,RAND (US),interactive,historical
+T-SQL,1989,Microsoft / Sybase,SQL dialect,SQL Server
+PL/SQL,1988,Oracle,SQL dialect,Oracle
+PL/pgSQL,1998,PostgreSQL global group,SQL dialect,PostgreSQL
+SASS / SCSS,2006,Hampton Catlin (US),CSS extension,web
+AppleScript,1993,Apple,macOS automation,macOS
+Zsh / fish script,1990s,respective communities,shell automation,dev machines
+Raku,2015,Perl community,general,niche
+Eiffel,1986,Bertrand Meyer (US/FR),design-by-contract,legacy
+Standard ML,1983,Edinburgh / industry,functional research,research
+Racket,1995,"PLT, Felleisen (US)","education, research",academia
+Haskell covered
+V (vlang),2019,Alexander Medvednikov (NL),systems,emerging
+Grain,2017,Oscar Spencer (US),Wasm-native,experimental
+Ada covered
+Vala,2006,GNOME,GNOME apps,Linux desktop
+Zig covered
+Jai (unreleased),2010s,Jonathan Blow (US),game dev,private beta
+UnrealScript / Blueprint,1998/2014,Epic Games (US),game scripting,games industry
+MQL,2005,MetaQuotes,trading robots,finance
+Q#,2017,Microsoft,quantum,research
+Quipper / Silq,2013/2020,research,quantum,research
+Solidity covered; Ink,2017,Inkle (UK),narrative DSL,games
+Godot shader lang,2014,Godot,shading,indie games
