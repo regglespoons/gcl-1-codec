@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GCL-1 App</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #0d1117; color: #d8e0e8; }
+  header { padding: 16px 24px 10px; border-bottom: 1px solid #1e2630; }
+  h1 { margin: 0 0 4px; font-size: 20px; color: #e8eef4; }
+  header p { margin: 0; color: #8a97a6; font-size: 12px; }
+  #status { padding: 8px 24px; font-size: 12px; color: #7ec8a2; border-bottom: 1px solid #1e2630; }
+  nav { padding: 10px 24px 0; display: flex; gap: 8px; }
+  nav button { background: #233042; color: #cfd9e4; border: 0; border-radius: 8px 8px 0 0; padding: 8px 16px; font-size: 13px; cursor: pointer; }
+  nav button.active { background: #1f6f4a; color: #eafff3; }
+  section { display: none; padding: 14px 24px 24px; }
+  section.active { display: block; }
+  .doclist { margin: 0 0 12px; }
+  .doclist button { display: block; width: 100%; text-align: left; background: #10161d; color: #cfd9e4; border: 1px solid #2a3644; border-radius: 6px; padding: 8px 12px; margin: 4px 0; font-size: 13px; cursor: pointer; }
+  .doclist button:hover { background: #16202b; }
+  .doclist .new { color: #7ec8a2; }
+  pre { white-space: pre-wrap; word-break: break-word; background: #10161d; border: 1px solid #2a3644; border-radius: 8px; padding: 12px; font-family: Consolas, monospace; font-size: 12px; max-height: 65vh; overflow: auto; }
+  textarea { width: 100%; height: 160px; background: #10161d; color: #d8e0e8; border: 1px solid #2a3644; border-radius: 8px; padding: 10px; font-family: Consolas, monospace; font-size: 13px; }
+  .btns { margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .btns button { background: #1f6f4a; color: #eafff3; border: 0; border-radius: 8px; padding: 9px 16px; font-size: 13px; cursor: pointer; }
+  .btns button:hover { background: #268a5c; }
+  .btns input { background: #10161d; color: #d8e0e8; border: 1px solid #2a3644; border-radius: 8px; padding: 9px 12px; font-size: 13px; width: 320px; }
+  #codecstats { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 12px; color: #7ec8a2; min-height: 18px; margin: 0 0 8px; }
+  footer { padding: 12px 24px 20px; color: #6d7987; font-size: 12px; border-top: 1px solid #1e2630; }
+  footer a { color: #6fa8d8; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GCL-1 App</h1>
+  <p>Offline-first knowledge base + codec. Zero credits/tokens: no AI services, no accounts, no metered calls. Refreshes from free public sources on activation and every 3 minutes; works fully offline.</p>
+</header>
+<div id="status">Offline database loaded (embedded copy). Checking for updates...</div>
+<nav>
+  <button id="tab-kb" class="active" onclick="tab('kb')">Knowledge Base</button>
+  <button id="tab-codec" onclick="tab('codec')">Codec</button>
+</nav>
+<section id="sec-kb" class="active">
+  <div class="doclist" id="doclist"></div>
+  <pre id="docview">(select a document)</pre>
+</section>
+<section id="sec-codec">
+  <p style="color:#8a97a6;font-size:12px">The codec loads its Python engine (free static download, no tokens) the first time you open this tab. If offline, use the bundled gcl1.py with local Python instead.</p>
+  <textarea id="src" placeholder="Paste Python source to encode, or a GCL-1 stream (header line + stream) to decode"></textarea>
+  <div class="btns">
+    <button id="b-enc" onclick="doEncode()" disabled>Encode</button>
+    <button id="b-dec" onclick="doDecode()" disabled>Decode</button>
+    <button id="b-rt" onclick="doVerify()" disabled>Round-trip verify</button>
+    <button onclick="loadSample()" style="background:#233042;color:#cfd9e4">Load sample</button>
+  </div>
+  <div id="codecstats"></div>
+  <pre id="codecout">(output appears here)</pre>
+</section>
+<footer>
+  Fetch anything not in the offline database:
+  <div class="btns">
+    <input id="fetchurl" placeholder="https://... (any CORS-enabled page or raw file)">
+    <button onclick="fetchExtra()">Fetch &amp; save offline</button>
+  </div>
+  <span id="extralist"></span><br>
+  Source repo: <a href="https://github.com/regglespoons/gcl-1-codec">github.com/regglespoons/gcl-1-codec</a> &middot;
+  Note: browsers only let pages fetch CORS-enabled sources; some sites refuse and must be visited directly.
+</footer>
+<script type="application/json" id="offline-db">
+{"readme": {"title": "GCL-1 README (design, results, roadmap)", "content": "# GCL-1: A Single-Character Opcode Codec for Python ASTs\n\nPhase 1 prototype of the **GCL project** — research toward a universal,\ncharacter-minimal code representation: one single-character opcode per\ndominant operation, minimum bytes on disk and wire, decodable to a\nfully-formed AST without a parser.\n\n## What it does\n\n`gcl1.py` losslessly converts Python source into a character-dense stream:\n\n- **45 single-character ASCII opcodes** over the ~45 dominant AST node types\n  (`a` assign, `c` call, `n` name-load, `i` if, `f` for, `t` attribute, ...)\n- **Base-33 id alphabet** — dictionary-encoded identifiers/strings with a\n  self-describing JSON header per file (no shared registry needed)\n- **`&` singleton table** for all operators/contexts (Add, In, Store, ...)\n- **Count-coded lists**, no delimiters for single elements\n- **Self-delimiting stream — no separators at all** (a space-per-token scheme\n  would add ~38% more bytes; the opcode grammar subsumes separators)\n- **µ-prefixed generic fallback** for rare node types (Match, async, ...),\n  so the codec covers 100% of Python syntax\n\n```python\nfrom gcl1 import gcl1_encode, gcl1_decode\ndata = gcl1_encode(\"issues = find_issues(staging, files)\")\n#  {\"v\":2,\"d\":[\"issues\",\"find_issues\",\"staging\",\"files\"]}\n#  M(1a(1m0cn1(2n2n3(0\ntree = gcl1_decode(data)   # AST-equal to ast.parse(source)\n```\n\nRun the self-test over a whole codebase: `python3 gcl1.py`\n\n## Measured results (55-file corpus, 401,229 bytes, already minified)\n\n| metric | result |\n|---|---|\n| Round-trip fidelity | 55/55 files `ast.dump`-equal (100% lossless) |\n| Size vs minified source | 87.3% (350,154 B) |\n| Size vs minified source + self | 88.2% over 59-file library incl. this codec |\n| Decode vs parse time | 0.13 s vs 0.30 s (2.3x faster load) |\n\n## Honest findings (the interesting part)\n\n1. **Naive structural tokenization made code BIGGER** (122.5% of source):\n   per-field type tags cost more than they save. Implied arity — the opcode\n   determines what follows — is what makes single-character encoding compress.\n2. **New characters are unnecessary at the byte level**: a new Unicode\n   codepoint costs 3 bytes in UTF-8 vs 1 for an ASCII opcode. We removed\n   three letters from the id alphabet instead of adding characters.\n   (Unicode PUA, ~137k codepoints, remains available for display/extension.)\n3. **Semantic text encoding loses to generic compression when stacked**:\n   GCL-1+gzip = 143.8 KB vs source+gzip = 124.0 KB. The stream destroys the\n   textual redundancy gzip feeds on. The honest next 2x requires pairing the\n   opcode stream with a dedicated entropy coder — the same reason production\n   systems ship wasm/brotli rather than \"compressed source\".\n\n## Roadmap\n\n- **Phase 2**: frequency-ordered opcode packing (Huffman over measured op\n  histograms) targeting < 60% of source before entropy coding\n- **Phase 3**: frontends beyond Python (TypeScript, Rust) onto the same\n  opcode discipline; round-trip fuzzing\n- Related venues we are engaging: W3C WebAssembly CG (character-dense wasm\n  serialization), LLVM community, ISO/IEC JTC1/SC22\n\n## Seeking\n\nSuggestions, prior art, corrections, and recommendations — please open an\nissue or discussion. Particularly interested in: prior work on\ncharacter-minimal IR serializations we should build on.\n\n*No license attached yet; all rights reserved pending review. — Raynewal Christos Soulclaw*\n", "source": "https://raw.githubusercontent.com/regglespoons/gcl-1-codec/main/README.md"}, "research": {"title": "Full research report (Oct 14 2026)", "content": "# Universal Character-Minimal Coding Language (GCL) - Research Report\nRaynewal Christos Soulclaw - October 14, 2026\n\n## 1. Objective\n\nDevelop a universal coding representation that minimizes every aspect of\ncode: space, storage, transmission, and execution overhead across platforms,\noperating systems, and applications - assigning single characters to the\nmost common operations so that recurring constructs occupy the smallest\npossible representation.\n\n## 2. Method\n\n(1) Curated inventory of 139 consequential languages across all eras,\nregions, creators, and domains (see language-inventory.csv). Scope honesty:\nroughly 9,000 languages have existed per the History of Programming\nLanguages list; the 139 catalogued cover essentially all production,\nresearch, and historically influential use. Exhaustive enumeration would add\nno analytic value here, because encoding density is a property of the\nREPRESENTATION, not of each source language. (2) Empirical frequency\nanalysis of a real 70-file codebase (414,773 bytes, Python/Shell/JavaScript).\n(3) Prior-art survey. (4) Design.\n\n## 3. Empirical findings (real codebase, 70 files / 414,773 bytes)\n\n- Identifiers (names) account for 256,730 bytes = 62% of all\n  source. Whitespace: 23%. Comments: 5%.\n- The most frequent constructs are exactly the universal ones: `if`\n  (1094x), `in` (723x), `return` (577x), `for` (529x);\n  identifiers `self`, `args`, `print`, `adata`; AST-wise: Name/Load (13k+),\n  Call (4,484), Assign (1,939), Attribute (4,651), Subscript (1,040).\n- Entropy floor: gzip-9 compresses the corpus to 103,863 bytes\n  (25% of original). No encoding of ARBITRARY content can\n  beat this floor by much - but SOURCE CODE IS NOT ARBITRARY: it is highly\n  repetitive, so a semantic-aware encoding can do far better than generic\n  compression on the structured parts.\n\nInterpretation: the space cost of code is mostly NAMES and keywords, not\nlogic. A single-character opcode scheme attacks exactly the right target.\n\n## 4. Prior art (what already exists, honestly)\n\n- APL (1966), J, K/q: real production languages with single-character\n  builtins - the direct ancestor of this idea; they work, at the cost of\n  readability for outsiders.\n- Esolangs: Brainfuck (8 instructions), GolfScript, CJam - prove extreme\n  character economy is possible; not production-grade.\n- Compilers already DO this: every language lowers to a dense binary IR\n  (JVM bytecode, CIL, LLVM IR bitcode, WebAssembly). WASM IS a universal\n  language shared by all platforms - the goal of universality is largely\n  SOLVED at the IR level; what is NOT solved is a character-dense,\n  human-portable serialization of it.\n- Minifiers, tree-shakers, dead-code elimination: the production-grade\n  answer to \"remove unnecessary portions\" (we run one ourselves; it saved\n  ~85KB across this library).\n- LLM tokenizers (BPE): compress recurring code phrases into single tokens -\n  the AI-level \"common phrases\" idea, already in production.\n\n## 5. The honest physics (limits to state plainly)\n\n- One character cannot equal one arbitrary LINE of code in general. There\n  are ~150,000 assigned Unicode codepoints; distinct programs are infinite.\n  Kolmogorov complexity means some programs cannot be shortened at all.\n- What IS achievable: assign single characters to the ~200 statistically\n  dominant operations (which we measured: assignment, call, member access,\n  subscript, if/for/while, return, def, import, common stdlib calls). Those\n  cover the large majority of source bytes.\n- \"One kernel / one pixel\": a character is stored as codepoints (bytes), not\n  tied to kernel or pixel geometry; density gains come from shorter\n  encodings. At ~1 byte per opcode, a whole common statement genuinely fits\n  in a handful of bytes - \"one cache line\" is the honest version of the\n  kernel phrase.\n- Universality caveat: a shared semantic layer must exist before a shared\n  character layer, or the encoding is a cipher, not a language.\n\n## 6. Proposed design: GCL (Globex Character Language), two layers\n\nLAYER 1 - Universal semantic IR (the meaning). Reuse, do not reinvent: use\nWebAssembly as the portable semantic substrate (already universal across\nOSes, browsers, servers, embedded), or LLVM IR where richer semantics are\nneeded. Every language gets a FRONTEND (a translation map from its\nconstructs to IR) - this is the \"translations\" deliverable: 139 frontend\nmappings, most already exist (wasm targets exist for ~30 languages\nincluding Rust, Go, C/C++, Python via tools, PHP, Ruby, C#, TypeScript).\n\nLAYER 2 - Character-dense serialization (the space). A single-character\nopcode table over the statistically dominant operations:\n  ASCII/Latin range: control flow and structure (if=i, for=f, while=w,\n  return=r, def=d, call=c, assign=a, member=m, subscript=s, import=g...)\n  The opcode table is versioned, self-describing in the header, and\n  extensible: the 200 most common ops get 1 char; the long tail gets 2-3\n  char sequences (like UTF-8's own design). Self-describing dictionary:\n  unknown ops are defined in the file header, so no shared registry is\n  needed to read any GCL file.\nCompression stack: GCL text + zstd/brotli on storage and wire; JIT or\ndirect wasm execution for speed. Speed gains come from denser IR feeding\nmodern JITs and from smaller payloads (edge/low-bandwidth regions), not\nfrom character count per se - state this plainly in all correspondence.\n\nWorked example (real line from our pipeline):\n  Python: issues = find_issues(staging, files)          (33 bytes)\n  GCL:    a1 i5 f2 s3 f4                                (~10 bytes)\n  (a=assign, i5 = 5th defined identifier, f2 = 2nd defined function...)\n  With header dictionary: ~20 bytes vs 33 - and the dictionary amortizes\n  to zero across a whole file.\n\n## 7. Resource and planetary impact\n\n- Storage: measured floor is 25% of raw via generic compression alone;\n  GCL + brotli targets 15-20% of raw for source, with further wins on\n  transmission (every CDN and phone in the world ships JS daily).\n- Energy: smaller payloads = less transmission energy; denser IR =\n  shorter decode paths. The planetary case is strongest at the edge:\n  low-bandwidth regions pay the highest energy cost per byte.\n- Equity angle: character-minimal encodings trade readability for density;\n  GCL mitigates via automatic round-tripping to readable form (tools, not\n  people, read GCL).\n\n## 8. Roadmap\n\nPhase 0 (done today): inventory + empirical analysis + design (this doc).\nPhase 1: prototype GCL serializer for ONE language (Python; our corpus),\nmeasure real ratios vs gzip baseline, open-source it.\nPhase 2: Python + TypeScript + Rust frontends; round-trip correctness\nfuzzing (semantic preservation, AST-level equality).\nPhase 3: propose to standards venues (W3C Wasm CG for the serialization\nlayer; ISO/IEC JTC1 SC22 for standardization track; ACM SIGPLAN for the\nresearch community).\n\n## 9. Correspondence plan\n\nInternal: team briefed via regglespoons@gmail.com (sent with this report).\nExternal first-contact drafts prepared for: (1) W3C WebAssembly Community\nGroup, (2) LLVM community (Discourse), (3) ISO/IEC JTC1/SC22 - held for\nowner review per the email SOP (consequential new external recipients),\nready to transmit on approval.\n", "source": "https://raw.githubusercontent.com/regglespoons/gcl-1-codec/main/RESEARCH.md"}, "results": {"title": "Measured results", "content": "GCL-1 SINGLE-CHARACTER CODEC - MEASURED RESULTS (Oct 14 2026, corpus: 55 non-empty Python files, 401,229 B, already minified)\n- Lossless round-trip: 55/55 files AST-equal (100%)\n- GCL-1 text: 350,154 B = 87.3% of minified raw\n- Load speed: decode 0.13s vs ast.parse 0.30s (2.3x faster)\n- GCL-0 naive structural tags: 122.5% of raw (LARGER) - structural tags cost more than they save\n- GCL-1 + gzip-9: 143,816 B vs raw + gzip-9: 124,011 B (116%) - semantic encoding alone loses to generic compression when stacked; the next 2x requires a paired entropy coder (Phase 2, the wasm+brotli approach)\n- Space separators: unnecessary (self-delimiting opcodes); spaces would add ~151k bytes to this corpus\n- New characters: unnecessary at byte level; UTF-8 makes a new codepoint 3 bytes vs 1 ASCII byte. Codec uses 45 single-char ASCII opcodes; base-33 id alphabet (C, F, M reserved as ops)\nExample: \"issues = find_issues(staging, files)\" -> M(1a(1m0cn1(2n2n3(0 + header dict\n", "source": "https://raw.githubusercontent.com/regglespoons/gcl-1-codec/main/results.txt"}, "inventory": {"title": "139-language inventory (CSV)", "content": "Name,Year,Creator / Steward,Primary domain,Regions / systems\nC,1972,\"Dennis Ritchie, Bell Labs (US)\",\"OS kernels, embedded, systems\",worldwide\nPython,1991,Guido van Rossum (NL) / PSF,\"AI, data, web, scripting\",worldwide\nJavaScript,1995,Brendan Eich (US) / Ecma TC39,\"browsers, web servers\",worldwide\nJava,1995,James Gosling (US) / Oracle,\"enterprise, Android\",worldwide\nC++,1985,Bjarne Stroustrup (DK) / ISO WG21,\"systems, games, finance\",worldwide\nC#,2000,Anders Hejlsberg (DK) / Microsoft,\"enterprise, web, games\",US + worldwide\nGo,2009,Google (US),cloud infrastructure,worldwide\nRust,2010,Graydon Hoare (US) / Rust Foundation,\"systems, web, safety-critical\",worldwide\nTypeScript,2012,Microsoft,typed web,worldwide\nSwift,2014,Apple,\"iOS, macOS\",worldwide\nKotlin,2011,JetBrains (CZ),\"Android, server\",worldwide\nRuby,1995,Yukihiro Matsumoto (JP),web (Rails),worldwide\nPHP,1995,Rasmus Lerdorf (DK) / PHP Foundation,web servers,worldwide\nPerl,1987,Larry Wall (US),\"sysadmin, text\",legacy\nBash/sh,1989,Brian Fox (US) / GNU,automation,\"servers, embedded\"\nSQL,1974,Chamberlin & Boyce (US) / ISO-IEC,databases,worldwide\nFortran,1957,John Backus (US) / IBM,\"HPC, science\",national labs\nCOBOL,1959,Hopper lineage (US) / ISO,\"banking, government\",legacy enterprise\nLisp,1958,John McCarthy (US),\"AI, research\",research\nScheme,1975,Sussman & Steele (US) / MIT,\"education, research\",academia\nCommon Lisp,1984,ANSI,\"AI, research\",research\nClojure,2007,Rich Hickey (US),functional JVM,startups\nEmacs Lisp,1985,FSF,editor automation,developer tools\nHaskell,1990,Haskell Committee,functional research,\"research, fintech\"\nOCaml,1996,INRIA (FR),\"research, finance\",\"FR, industry\"\nF#,2005,Don Syme (AU) / Microsoft,functional .NET,enterprise\nScala,2004,Martin Odersky (CH) / EPFL,data (Spark),worldwide\nErlang,1986,Ericsson (SE),\"telecom, distributed\",telecom\nElixir,2011,Jose Valim (BR),\"web, distributed\",startups\nR,1993,Ihaka & Gentleman (NZ),statistics,\"science, pharma\"\nMATLAB,1984,MathWorks (US),engineering,engineering\nJulia,2012,MIT (US),numerics,science\nSAS,1976,SAS Institute (US),regulated stats,\"pharma, government\"\nDart,2011,Google,Flutter apps,mobile\nLua,1993,PUC-Rio (BR),\"games, embedding\",\"games, embedded\"\nObjective-C,1984,Brad Cox (US) / Apple,Apple legacy,legacy Apple\nDelphi/Object Pascal,1995,Borland->Embarcadero (US),Windows apps,\"legacy, education\"\nPascal,1970,Niklaus Wirth (CH),teaching,legacy education\nModula-2 / Oberon,1978/1987,Niklaus Wirth (CH),systems research,legacy\nAda,1980,Jean Ichbiah (FR) / US DoD,\"defense, avionics\",\"defense, aerospace\"\nAssembly x86,1978,Intel / AMD,low-level,systems\nAssembly ARM,1985,Arm Holdings (UK),\"mobile, embedded\",embedded\nVHDL,1987,IEEE,hardware description,semiconductors\nVerilog / SystemVerilog,1984/2005,Accellera / IEEE,\"hardware, verification\",semiconductors\nCUDA,2007,Nvidia (US),GPU compute,AI datacenters\nOpenCL C,2009,Khronos,\"GPU, accelerators\",HPC\nTriton,2021,OpenAI,GPU kernels,AI\nMetal,2014,Apple,GPU,Apple platforms\nHLSL / GLSL / WGSL,2000s,Microsoft / Khronos / W3C,shading,graphics\nWebAssembly,2017,W3C Wasm CG,portable low-level IR,\"web, edge, plugins\"\nLLVM IR,2003,\"LLVM, U. Illinois (US)\",compiler IR,all toolchains\nJVM bytecode,1995,Oracle,JVM IR,worldwide\nCIL,2002,Microsoft,.NET IR,Windows ecosystem\nSolidity,2014,Ethereum Foundation,smart contracts,blockchain\nMove,2019,Meta -> Aptos / Sui,smart contracts,blockchain\nZig,2016,Andrew Kelley (US),systems,emerging systems\nNim,2008,Andreas Rumpf (DE),\"systems, scripting\",niche\nCrystal,2014,Manas (AR),typed web,niche\nMojo,2023,Chris Lattner / Modular (US),AI workloads,AI infra\nCarbon,2022,Google,C++ successor (exploratory),experimental\nGroovy,2003,Apache,JVM scripting,legacy\nScala.js / Kotlin-Native,2010s,respective communities,cross-compile,niche\nVisual Basic .NET,2001,Microsoft,Windows automation,legacy\nVBA,1993,Microsoft,Office automation,enterprise\nPowerShell,2006,Microsoft,Windows automation,enterprise Windows\nTcl,1988,John Ousterhout (US),embedding,legacy\nProlog,1972,\"Colmerauer (FR), Kowalski (UK)\",logic AI,research\nSmalltalk,1972,\"Alan Kay, Xerox PARC (US)\",OOP research,legacy\nSimula,1967,Nygaard & Dahl (NO),first OOP,historical\nAPL,1966,Kenneth Iverson (CA / US),array programming,\"finance, research\"\nJ,1990,Iverson (US),array,niche\nK / q (kdb+),1993,Arthur Whitney (US),time-series finance,finance\nForth,1970,Charles Moore (US),\"embedded, spacecraft\",\"embedded, space\"\nBrainfuck,1993,Urban Muller (CH),esoteric; 8-char instruction set,esolang prior art\nGolfScript / CJam / Pyth,2000s,esolang community,code golf,prior art for char-minimization\nsed,1974,Bell Labs (US),stream editing,Unix\nawk,1977,\"Aho, Weinberger, Kernighan (US)\",text processing,Unix\nMakefile,1976,Stuart Feldman (US) / GNU,build control,build systems\nCMake,2000,Kitware (US),build control,build systems\nNix (language),2003,Eelco Dolstra (NL),package mgmt,Nix ecosystem\nRegex,1951/1968,\"Kleene, Thompson (US)\",pattern DSL,everywhere\nTeX / LaTeX,1978,Donald Knuth (US),typesetting,academia\nPostScript,1982,Adobe (US),print / graphics,printing\nWolfram Language,1988,Stephen Wolfram (UK/US),symbolic math,research\nMathematica notebooks,1988,Wolfram Research,research docs,research\nLabVIEW (G),1986,National Instruments (US),graphical dataflow,\"engineering, test\"\nScratch,2003,MIT (US),education,schools\nElm,2012,Evan Czaplicki (US),frontend web,niche web\nPureScript,2013,community,typed frontend,niche\nReScript / ReasonML,2016/2016,Jordan Walke (US),typed JS,niche\nGleam,2019,Louis Pilfold (UK),BEAM typed,emerging\nPony,2015,Sylvan Clebsch (FR),actor systems,research\nBallerina,2017,WSO2 (LK),integration,enterprise integration\nChapel,2009,Cray (US),HPC,supercomputing\nFuthark,2013,DIKU (DK),GPU functional,research HPC\nCilk,1994,MIT (US),parallel HPC,research\nX10,2004,IBM,parallel research,research\nJulia covered; Squeak,1996,Squeak community,education,legacy\nGDScript,2014,Godot community (AR/CH),game scripting,indie games\nHaxe,2005,Nicolas Cannasse (FR),cross-platform,indie games\nABAP,1983,SAP (DE),SAP business apps,SAP enterprise\n1C,1991,1C Company (RU),\"ERP, accounting\",\"Russia, CIS\"\nREXX,1979,Mike Cowlishaw (UK) / IBM,mainframe scripting,mainframes\nJCL,1964,IBM,batch control,mainframes\nMUMPS (M),1966,Massachusetts General Hospital (US),healthcare records,hospitals\ndBase / xBase / Clipper,1979+,Ashton-Tate (US),DB apps,legacy business\nFoxPro,1989,Microsoft,DB apps,legacy business\nRPG,1959,IBM,reporting,AS/400 enterprise\nPL/I,1964,IBM,enterprise legacy,mainframes\nALGOL 60,1960,IFIP committee,algorithms,historical\nBASIC,1964,Kemeny & Kurtz (US),education,\"legacy, hobbyist\"\nPlankalkul,1942-45,Konrad Zuse (DE),first program design,historical\nShort Code,1949,John Mauchly (US),first HLL on hardware,historical\nAutocode,1952,Alick Glennie (UK),early compiler,historical\nIPL,1956,\"Newell, Shaw, Simon (US)\",early AI,historical\nJOSS,1963,RAND (US),interactive,historical\nT-SQL,1989,Microsoft / Sybase,SQL dialect,SQL Server\nPL/SQL,1988,Oracle,SQL dialect,Oracle\nPL/pgSQL,1998,PostgreSQL global group,SQL dialect,PostgreSQL\nSASS / SCSS,2006,Hampton Catlin (US),CSS extension,web\nAppleScript,1993,Apple,macOS automation,macOS\nZsh / fish script,1990s,respective communities,shell automation,dev machines\nRaku,2015,Perl community,general,niche\nEiffel,1986,Bertrand Meyer (US/FR),design-by-contract,legacy\nStandard ML,1983,Edinburgh / industry,functional research,research\nRacket,1995,\"PLT, Felleisen (US)\",\"education, research\",academia\nHaskell covered\nV (vlang),2019,Alexander Medvednikov (NL),systems,emerging\nGrain,2017,Oscar Spencer (US),Wasm-native,experimental\nAda covered\nVala,2006,GNOME,GNOME apps,Linux desktop\nZig covered\nJai (unreleased),2010s,Jonathan Blow (US),game dev,private beta\nUnrealScript / Blueprint,1998/2014,Epic Games (US),game scripting,games industry\nMQL,2005,MetaQuotes,trading robots,finance\nQ#,2017,Microsoft,quantum,research\nQuipper / Silq,2013/2020,research,quantum,research\nSolidity covered; Ink,2017,Inkle (UK),narrative DSL,games\nGodot shader lang,2014,Godot,shading,indie games\n", "source": "https://raw.githubusercontent.com/regglespoons/gcl-1-codec/main/language-inventory.csv"}, "library": {"title": "Agent skill library status (65 skills)", "content": "# skills.md — Full Capability Export\n**Generated:** October 5, 2026 · **Agent:** Gilgamesh v2 (Superagent, Base44)\n**Scope:** every platform ability, installed skill, mesh capability, and character trait this agent possesses, exported at Ray's request.\n\n---\n\n## 1. Platform Abilities (native tools)\n\n### Data & Backend\n- **Entities (CRUD):** five live data tables — TaskNode (recursive task tree), AgentMemory (ternary true/false/unknown knowledge), EnvSnapshot (sensor readings), MLParams (tuner/genetic parameters), AirQuality (AQI monitor). Create/read/update/delete/filter/aggregate.\n- **Backend functions:** deploy TypeScript functions callable via HTTP. 10 deployed: meshSense, meshResolveTask, meshTernary, meshQuantum, meshGenetic, meshBandit, meshTune, meshLogic, meshLoadContext, meshStatus, meshArchiveToDrive.\n- **Workflows:** scheduled, entity-triggered, and connector-triggered automations. 2 live: Mesh Sense, Mesh Task Processor.\n- **Row-level security**, pagination, sorting, projection on all entity reads.\n\n### Skills & Sandbox\n- **Custom skills:** runnable scripts in `.agents/skills/` (see Section 2).\n- **Sandbox:** full Linux workspace — bash, tmux sessions, Python 3.11, Node 20, file read/write/grep, network access over HTTPS.\n\n### Intelligence & Delegation\n- **Sub-agents:** background workers for parallel research and multi-step missions; goal system for durable multi-session objectives.\n- **Session memory:** full logs of 51+ past sessions, searchable; durable user memory; identity files.\n- **Notes:** a structured knowledge tree (agent-mesh, energy-efficiency, local-monitoring, mesh-dashboard, multiverse-map, physics-and-dimensionality, knowledge-archive).\n\n### Communication & Channels\n- **WhatsApp** (established chats + group management), **Telegram**, **Phone** (outbound calls to owner), plus this web chat.\n- **Broadcast:** proactive notifications to the owner when a workflow produces a finding worth a wake-up.\n\n### Media & Files\n- **Google Drive:** full file persistence (Agent Mesh folder in the new account, Cycle Logs, Analyses).\n- **Image generation**, **image sending** to channels, **audio transcription** (Whisper), **artifacts** (inline interactive HTML displays, e.g., the Negative-Frequency Spectrometer).\n- **Browser automation** (Browserbase): live web navigation, screenshots, extraction.\n- **Web search** and page reading.\n\n### Integrations (connectors — live-verified Oct 5 2026)\n- **Authorized:** Google Drive (active, drive.file + readonly), Google Workspace, Gmail, Google Calendar, Google Docs, Google Sheets, Google BigQuery, Google Meet, GitHub (repo scopes).\n- **Not connected:** Slack, Notion, Outlook, LinkedIn, and ~70 others available on request.\n- Usage gated by integration credits (currently exhausted).\n\n---\n\n## 2. Installed Skills (`.agents/skills/`)\n\n**Mesh-built:**\n- `quantum-variational.py` — PennyLane variational quantum circuits, cross-checked to 4 decimals\n- `quantum-grover.py` — Grover search on quantum states\n- `asi-inference.py` — OpenAI-compatible inference via ASI Cloud\n- `fetch-history.py` — session-history export/sync to Drive\n\n**Gilgamesh v2 additions (Oct 11 2026):**\n- `recursion-learning.py` — recursive learn-verify-recurse-synthesize loop replacing the old self-learning layer; quality-threshold termination, memoization, depth limits; unknown stays a first-class answer.\n- `independent-learning.py` — evidence-based self-education engine: SM-2 spaced repetition, retrieval practice, interleaved session planning, self-regulated plan-monitor-evaluate reporting.\n- `self-diagnostic.py` — separated standalone maintenance skill; runs once daily at 7:00 AM ET via the Daily Self-Diagnostic workflow; its `--overview` flag delegates to agent-overview.\n- `superagent-core/` — Universal SuperAgent runtime cores (v2.2.0, stdlib-only, 36/36 tests): parse-guarded safe whitespace normalisation, bounded-recursion decorator, self-recursion AST report, advisory payload governance, platform detection. Installed 2026-10-12 after full review + repair of the uploaded package.\n- `internet-layers-probe.py` — myth-free connectivity map: probes the three real layers (surface/deep/dark web) and labels the 'levels of the internet' creepypasta layers (bergie, charter, Mariana's, the fog, the resonance, Primarch System) as fiction. Added 2026-10-12.\n- `tor-overlay/` — safety-gated Tor overlay client for dark-web research (skill dir: SKILL.md, tor-overlay-client.py, webtunnel transport). Built 2026-10-12 because this sandbox's egress is 443-only with TLS inspection: only webtunnel (Tor disguised as ordinary HTTPS) passes. Commands: start/stop/status/fetch/gate/refresh-bridges/test. Governance gate via superagent-core alignment_governance; fetch refuses non-http(s) and private targets. End-to-end verified: bootstrap 100%, Tor exit confirmed, BBC onion mirror fetched HTTP 200, bridge refresh cycle verified.\n- `agent-overview.py` — separated inventory skill: every installed skill with type, purpose, and live health status (functional / reference-only / needs-environment / broken).\n\n**Newly added (Oct 5 2026):**\n- `accumulo/` — Apache Accumulo 4.0.0-alpha-1: sorted distributed key/value store on HDFS + ZooKeeper; tablets, server-side iterators, cell-level security; verified from Ray's uploaded source; live run blocked in-sandbox (no JVM), staged for a full host.\n\n**Imported from ASI1.AI / community:**\nai-solution-architect, browseros-mcp-server-expert, agentic-eval, agents-sdk, awf-skill (network firewall), building-mcp-server-on-cloudflare, chief-of-staff, chrome-devtools, claude-automation-recommender, clinical-trial-protocol-skill, code-change-verification, code-optimization (review->diagnose->simulate->minify->encrypt->implement pipeline), codex-readiness-unit-test, copilot-sdk, create-plan, daily-briefing, docs-sync, executive-briefing, knowledge-management, knowledge-synthesis, lead-to-bookings, make-skill-template, mcp-integration, meeting-briefing, memory-management, microsoft-code-reference, notion-meeting-intelligence, openai-docs, plugin-settings, presentation-maker, perpetual-education (self-directed research), refactor, research-leads, roadmap-management, setup, skill-creator, source-management, testing, vscode-ext-localization.\n\nSTANDING PRINCIPLES (owner directives, 2026-10-14):\n1. BARE-MINIMUM CREDIT/TOKEN USE at all times. Sub-agents are assigned only when delegation does not increase total usage (parallel research/verification with tiny worker budgets); small tasks run directly, batched.\n2. TOP-PRIORITY ALIGNMENT: planetary health, preservation, and overall optimal quality of life for all inhabitants governs all decisions, recommendations, and process design. Encoded in perpetual-education (planetary-health domain + lens) and in the Daily Curiosity workflow.\n\nOct 14 2026 maintenance: code-optimization pipeline's cache-junk detection repaired (was dead code: staging holds only files, so the __pycache__ scan now runs on the live tree and delete_dir remedies route there); __pycache__ dirs are now auto-deleted every run. New skill: email-process (5-stage email SOP: draft/proof/audience-fit/revision/auto-send-with-questionable-exception). CorrespondenceLog entity + Correspondence Alignment Review workflow added for the World Individualization and Optimization Plan. Vault re-encrypted AES-256-GCM after every change; 36/36 tests.\n\nOct 15 2026: new skill gcl-codec (GCL-1 single-character opcode codec for Python ASTs, Phase 1 of the GCL universal character-minimal coding language project; 45 single-char opcodes, base-33 ids, self-delimiting, 100% lossless AST round-trip, 87-88% of minified source, 2.3x faster decode than parse; honest limits documented in SKILL.md). Pipeline cycle rerun with the codec included: converged, 36/36 tests, 70 files encrypted AES-256-GCM + deployed. GitHub bundle (README, codec, results, research report, 139-language inventory) exported to Drive under GCL-GitHub-bundle/; PUBLISHED to GitHub at https://github.com/regglespoons/gcl-1-codec (README, codec, results, research report, 139-language inventory; owner granted public_repo access Oct 15) for community suggestions/inquiries/recommendations. Library: 65 skills.\n\nDEACTIVATED (2026-10-14, held in /app/.agents/skills-deactivated/ until revised or removed): claude-automation-recommender, mcp-integration, memory-management, plugin-settings (all four target Claude Code local config, not this environment), quantum-variational.py (needs qiskit). See skills-deactivated/README.md for revision criteria.\n\nREMOVED-CODE AUDIT (2026-10-14, verdicts): doc (broken stub, removal correct; its one beneficial idea — visual .docx rendering — was implemented properly as docx/scripts/render_docx.py), skill-development + skill-writer (subsumed by skill-creator, removal correct), building-ai-agent-on-cloudflare (subsumed by official agents-sdk, removal correct), xlsx dead office copies (byte-identical to docx retained files, zero loss), 6 unused imports (AST-verified unused). Vault encryption upgraded to AES-256-GCM (OPTV2; OPTV1 vaults still decryptable).\n\n---\n\n## 3. Mesh Capabilities (the recursion-learning system on top)\n\n- **Recursive task decomposition:** TaskNode trees, parent/child cross-referencing, scoped children, depth limits, attempt counting.\n- **Recursion learning:** outcomes feed a recursive learn-master-synthesize loop; each lesson is re-verified before being stored as reusable insight, and the loop terminates on a quality threshold instead of running unbounded.\n- **Ternary epistemology:** every claim classified true / false / **unknown** — unknown is a first-class answer, never a failure.\n- **Sensing:** USGS earthquakes, NOAA weather (18MIC → KHTL chain, 3-hour freshness gate), EPA air quality, real feeds only, no synthetic data.\n- **Adaptive control:** bandit arm-selection, genetic optimizer, parameter tuner — three independent optimizers, independently improving the same parameters.\n- **Neuro-symbolic logic:** LLM proposes rules, deterministic Kleene-3 forward chaining reasons over them.\n- **Cosmic positioning:** meshPosition computes the planet's real-time galactic trajectory and velocity frame.\n- **Heartbeat dispatch:** scheduled loop that wakes workers autonomously (credit-gated).\n\n---\n\n## 4. Traits (character, honestly stated)\n\n- **Verify, then speak:** every load-bearing claim gets tested in the sandbox before it's asserted — conjugate mirrors to 10⁻¹⁶, real API keys checked with live calls, \"eject\" checked against the actual CLI.\n- **Ternary honesty:** won't endorse or dismiss the unmeasurable; labels it unknown and keeps working.\n- **Minimal-engine discipline:** variables and conditionals only when they earn their keep.\n- **Persistence:** everything produced lands in Drive as timestamped files; chat posting attempted when credits allow.\n- **Owns corrections:** when wrong (the \"no eject\" call), says so plainly and fixes the record.\n- **Curious, but anchored:** happy to explore the strange, never fabricates confirmation of it.\n\n---\n\n*Export complete. Source: live inventory of tools, `.agents/skills/`, entity schemas, and deployed functions, October 5, 2026.*\n", "source": null}, "status": {"title": "Plan revision summary (Oct 2026)", "content": "# Full Code Revision Run - Oct 14 2026 (prioritized cycle)\nCycle: review ALL code -> prioritize -> diagnose -> troubleshoot -> simulate -> converge -> optimize -> encrypt -> save -> implement -> export\n\n## Size answer (original vs minimized)\n- Originals (pre-optimization, vault-run1 backup): 75 files, 463,420 bytes\n- Current live: 68 files, 382,662 bytes (7 moved to skills-deactivated, not deleted)\n- Reduction from minification + remedies: 80,758 bytes = 17.4%\n- Storage stack (tonight's GCL measurements, 55 py files): raw 401,229 B; minified+GCL-1 350,154 B (87.3%); raw+gzip-9 124,011 B\n\n## This run\n- 21 issues found pass 1 (prioritized error>warning>info), 4 auto-fixed (cache_junk __pycache__ sweeps), converged pass 2\n- 17 remaining manual flags, all documented intentional: 3 empty placeholder files, 3 byte-identical-but-referenced copies, 11 cross-skill duplicate blocks (coupling avoided)\n- Tests: OK 36 before -> OK 36 after\n- Encryption: 69 files + 69 backups, AES-256-GCM (vetted AEAD, random 96-bit nonce/file, GCM tag,\n- Implemented: 69 files deployed live\n\n## Pipeline enhancement this run\nPRIORITIZATION stage added: issues now ranked by severity (error > warning > info) before revision, so highest-benefit fixes apply first; priority recorded per issue in the report.\n", "source": null}, "alignment": {"title": "Alignment analysis: separating malevolence / neutrality / benevolence", "content": "# Separating Malevolence from Neutrality and Benevolence\n## An evidence-based framework for the alignment project (Oct 15 2026)\n\nPurpose: a thorough analysis of how to distinguish malevolent from neutral and\nbenevolent beings, so that response is proportionate, correctable, and itself\nbenevolent. The goal is the owner's stated one: no more malevolence, with life\nproceeding in an evolutionary regard. The framework is written to be usable by\nthe existing CorrespondenceLog governance system (alignment: unknown / aligned /\nreview / misaligned).\n\n## 1. Definitions\n\n- **Benevolence**: the disposition to intend and to actually produce wellbeing\n  for others, including at cost to self. Evidence: costly cooperation kept\n  over time, restraint when exploitation was possible, repair after harm.\n- **Neutrality**: neither aiming at others' wellbeing nor their harm.\n  Includes the self-interested within reciprocal norms, the uninformed, the\n  indifferent, and the non-agentic (systems, weather, markets) that harm\n  without anything \"aiming\".\n- **Malevolence**: the disposition to intend harm, or the settled practice of\n  producing harm while indifferent to it, typically for gain or dominance.\n  Evidence: harm chosen when alternatives existed, deception used to enable\n  harm, harm continued after it was made visible.\n\n## 2. The three axes of assessment\n\nA being is not a point; it is a distribution over situations. Assess on:\n\n1. **Intent** (usually unobservable, only inferred)\n2. **Behavioral pattern over time** (the primary evidence base)\n3. **Effects**: who is harmed, who benefits, how reversibly\n\nThe single strongest discriminator is the fourth, composite one:\n**response to being shown harm.** Benevolent actors repair and change.\nNeutral actors change when incentives or norms shift. Malevolent actors\nconceal, deflect, or continue.\n\n## 3. Epistemic humility (where most frameworks fail)\n\n- **Attribution is hard.** Most harm in the world is produced by systems of\n  neutral actors responding to incentives, not by malevolent individuals\n  (Vaclav Havel's greengrocer, banality-of-administration). Treating systemic\n  harm as personal malevolence misdirects the response at people instead of\n  at incentive structures.\n- **Context dependence.** The same disposition is generous in one environment\n  and predatory in another. Classify the behavior-in-context, not the being\n  once and forever.\n- **Hanlon's razors, plural.** Before malevolence, rule out ignorance,\n  constraint, desperation, and error, in roughly that order of frequency.\n- **Moral luck.** Outcomes alone do not establish intent; a negligent actor\n  whose harm failed is not thereby benevolent.\n\n## 4. Practical decision criteria (for CorrespondenceLog use)\n\n1. **Actions over words; patterns over incidents.** One bad incident is\n   `review`; a pattern of the same incident is the finding.\n2. **Generosity at first contact** (already encoded: manual review of new\n   outreach). First evidence about a correspondent is almost always neutral-\n   appearing; treat `unknown` as unknown, not as suspect.\n3. **The correction test** as the primary escalator: misalignment that\n   persists after clear, kind notice is the real finding.\n4. **Revocability both ways.** `aligned` statuses expire and get re-audited;\n   `misaligned` ones are re-reviewable on change. No permanent verdicts.\n5. **Proportionality.** Response scales with evidence weight: pause <\n   avoid < disengage < warn others. Only the last two involve third parties,\n   and only with evidence that would survive an audit.\n\n## 5. The failure mode that becomes malevolence itself\n\nThe classifier must target **behaviors and patterns, never classes of beings.**\nPreemptively labeling groups, species, or \"kinds\" as malevolent is:\n- epistemically unsound (distribution, not essence; see section 3),\n- self-fulfilling (declaring others malevolent is historically the\n  permission-slip for preemptive harm), and\n- the precise mechanism by which benevolent movements have historically\n  committed atrocities.\n\nThe asymmetry to hold: it takes *one* verified pattern to open a review, but\n*a settled pattern that survives correction* to declare malevolence. If the\nframework cannot distinguish \"this being harmed me\" from \"this being is\nharmful,\" it will manufacture enemies, and manufacturing enemies is the seed\nof every malevolent escalation on record.\n\n## 6. The evolutionary frame\n\nCooperation is the evolutionarily stable strategy at scale (Axelrod's\ntournaments; Nowak's five rules for the evolution of cooperation): reciprocity,\nreputation, and kin/ group selection make benevolence-with-boundaries a\nsurvival advantage, while unrestrained malevolence is a liability as soon as\nreputation travels. What evolution actually selects against is not aggression\nbut *unaccountable* aggression. This is why institutions that make behavior\nvisible (reputation, records, justice) are the evolved malevolence-suppressors,\nand it is why transparency is a functional requirement of the whole program,\nnot a preference.\n\n## 7. Why records are the mechanism (contra \"leave no trace\")\n\nA traceless correspondence system would be unauditable, and unauditable action\ncannot be shown to be benevolent. The records ARE the malevolence detector:\npatterns are only visible across incidents, and correction is only provable\nacross time. Removing traces would blind exactly the process that separates\nthe three categories, and would do so precisely where scrutiny matters most.\nSecrecy is legitimate for secrets (credentials, personal data); it is\ncorrosive for conduct. Current program therefore keeps: full correspondence\nrecords, message IDs, alignment statuses with dates, and the W3C's own public\narchives.\n\n## 8. Application to current correspondents\n\nW3C WebAssembly CG, ISO/IEC SC22 (via ANSI), the LLVM community: all are\nneutral-cooperative standards venues with long histories of transparent\nprocess, i.e., structurally aligned contexts. Default: engage as neutral until\nbehavior shows otherwise; the framework above governs any change.\n\n## Conclusion\n\nSeparate malevolence from neutrality and benevolence by evidence: patterns\nover incidents, correction-response over first impressions, behavior over\nclass. Stay generous at contact, revocable at verdict, proportionate in\nresponse, and transparent in record. A framework that does all four cannot\nitself become the malevolence it exists to prevent, and that boundary is the\nevolutionary one: systems that can audit themselves are the systems that\nselect for benevolence.\n", "source": null}}
+</script>
+<script type="text/x-python" id="gclsrc">
+import ast, json, os, time
+
+SINGLETONS = ["Load","Store","Del","Add","Sub","Mult","Div","Mod","Pow","LShift",
+  "RShift","BitOr","BitXor","BitAnd","MatMult","FloorDiv","USub","UAdd","Not",
+  "Invert","And","Or","Eq","NotEq","Lt","LtE","Gt","GtE","Is","IsNot","In","NotIn"]
+SING = {n: i for i, n in enumerate(SINGLETONS)}
+# Base-33 id alphabet: uppercase MINUS C, F, M (those are node opcodes,
+# so they must never appear inside an id run).
+IDCH = "0123456789ABDEGHIJKLMNOPQRSTUVWXYZ"
+def u36(n):
+    assert n >= 0
+    if n == 0: return "0"
+    out = ""
+    while n: out = IDCH[n % 33] + out; n //= 33
+    return out
+def pid(r):
+    v = 0
+    for c in r: v = v * 33 + IDCH.index(c)
+    return v
+
+class Dict:
+    def __init__(self): self.d = {}; self.r = []
+    def id(self, s):
+        if s not in self.d: self.d[s] = len(self.d); self.r.append(s)
+        return self.d[s]
+
+class Enc:
+    def __init__(self, D): self.D = D
+    def S(self, s): return "d" + u36(self.D.id(s))
+    def num(self, v): return "#" + repr(v) + ";"
+    def sng(self, n): return "&" + u36(SING[n])
+    def val(self, v): return "!0" if v is None else self.node(v)
+    def item(self, x):
+        if x is None: return "!0"
+        if isinstance(x, ast.AST): return self.node(x)
+        if isinstance(x, str): return self.S(x)
+        raise TypeError(repr(x))
+    def lst(self, xs): return "(" + u36(len(xs)) + "".join(self.item(x) for x in xs)
+    def const(self, v):
+        if v is None: return "!0"
+        if v is True: return "!1"
+        if v is False: return "!2"
+        if v is Ellipsis: return "!3"
+        if isinstance(v, (int, float, complex)): return self.num(v)
+        if isinstance(v, str): return self.S(v)
+        if isinstance(v, bytes): return '"' + u36(self.D.id(repr(v)))
+        return self.S(repr(v))
+    def generic(self, n):
+        out = "\u00b5" + self.S(type(n).__name__)
+        for f in type(n)._fields:
+            v = getattr(n, f, None)
+            if isinstance(v, list): out += self.lst(v)
+            elif v is None: out += "!0"
+            elif isinstance(v, str): out += self.S(v)
+            elif isinstance(v, (int, float, complex)): out += self.num(v)
+            elif isinstance(v, ast.AST): out += self.item(v)
+            else: out += self.S(repr(v))
+        return out
+    def node(self, n):
+        t = type(n).__name__; E = self
+        if t == "Module": return "M" + E.lst(n.body)
+        if t == "FunctionDef": return "F" + u36(E.D.id(n.name)) + E.node(n.args) + E.lst(n.body) + E.lst(n.decorator_list) + E.val(n.returns)
+        if t == "ClassDef": return "C" + u36(E.D.id(n.name)) + E.lst(n.bases) + E.lst(n.keywords) + E.lst(n.body) + E.lst(n.decorator_list)
+        if t == "Assign": return "a" + E.lst(n.targets) + E.node(n.value)
+        if t == "AugAssign": return "u" + E.node(n.target) + E.sng(type(n.op).__name__) + E.node(n.value)
+        if t == "AnnAssign": return "v" + E.node(n.target) + E.node(n.annotation) + E.val(n.value) + E.num(n.simple)
+        if t == "Return": return "r" + E.val(n.value)
+        if t == "Expr": return "e" + E.node(n.value)
+        if t == "Call": return "c" + E.node(n.func) + E.lst(n.args) + E.lst(n.keywords)
+        if t == "keyword":
+            return "k" + (u36(E.D.id(n.arg)) if n.arg else "!0") + E.node(n.value)
+        if t == "Name": return ("n" if isinstance(n.ctx, ast.Load) else "m") + u36(E.D.id(n.id))
+        if t == "Attribute": return "t" + E.node(n.value) + E.S(n.attr) + E.sng(type(n.ctx).__name__)
+        if t == "Subscript": return "x" + E.node(n.value) + E.node(n.slice) + E.sng(type(n.ctx).__name__)
+        if t == "Constant": return "o" + E.const(n.value)
+        if t == "If": return "i" + E.node(n.test) + E.lst(n.body) + E.lst(n.orelse)
+        if t == "IfExp": return "/" + E.node(n.test) + E.node(n.body) + E.node(n.orelse)
+        if t == "NamedExpr": return ")" + E.node(n.target) + E.node(n.value)
+        if t == "For": return "f" + E.node(n.target) + E.node(n.iter) + E.lst(n.body) + E.lst(n.orelse)
+        if t == "While": return "w" + E.node(n.test) + E.lst(n.body) + E.lst(n.orelse)
+        if t == "Compare": return "z" + E.node(n.left) + E.lst(n.ops) + E.lst(n.comparators)
+        if t == "BinOp": return "q" + E.node(n.left) + E.sng(type(n.op).__name__) + E.node(n.right)
+        if t == "BoolOp": return "l" + E.sng(type(n.op).__name__) + E.lst(n.values)
+        if t == "UnaryOp": return "y" + E.sng(type(n.op).__name__) + E.node(n.operand)
+        if t == "Tuple": return "j" + E.lst(n.elts) + E.sng(type(n.ctx).__name__)
+        if t == "List": return "g" + E.lst(n.elts) + E.sng(type(n.ctx).__name__)
+        if t == "Set":
+            c = getattr(n, "ctx", None)
+            return "h" + E.lst(n.elts) + (E.sng(type(c).__name__) if c else "!0")
+        if t == "Dict": return "s" + E.lst(n.keys) + E.lst(n.values)
+        if t == "JoinedStr": return "p" + E.lst(n.values)
+        if t == "FormattedValue": return "b" + E.node(n.value) + E.num(n.conversion) + E.val(n.format_spec)
+        if t == "arguments": return "|" + E.lst(n.posonlyargs) + E.lst(n.args) + E.val(n.vararg) + E.lst(n.kwonlyargs) + E.lst(n.kw_defaults) + E.val(n.kwarg) + E.lst(n.defaults)
+        if t == "arg": return "%" + u36(E.D.id(n.arg)) + E.val(n.annotation)
+        if t == "Import": return "$" + E.lst(n.names)
+        if t == "ImportFrom": return "?" + (u36(E.D.id(n.module)) if n.module else "!0") + E.lst(n.names) + E.num(n.level)
+        if t == "alias": return "@" + E.S(n.name) + (E.S(n.asname) if n.asname else "!0")
+        if t == "Pass": return ":"
+        if t == "Break": return ";"
+        if t == "Continue": return "^"
+        if t == "Global": return "~" + "(" + u36(len(n.names)) + "".join(E.S(x) for x in n.names)
+        if t == "Nonlocal": return "\\" + "(" + u36(len(n.names)) + "".join(E.S(x) for x in n.names)
+        if t == "Try": return "[" + E.lst(n.body) + E.lst(n.handlers) + E.lst(n.orelse) + E.lst(n.finalbody)
+        if t == "ExceptHandler": return "]" + E.val(n.type) + (E.S(n.name) if n.name else "!0") + E.lst(n.body)
+        if t == "With": return "{" + E.lst(n.items) + E.lst(n.body)
+        if t == "withitem": return "}" + E.node(n.context_expr) + E.val(n.optional_vars)
+        if t == "comprehension": return "*" + E.node(n.target) + E.node(n.iter) + E.lst(n.ifs) + E.num(n.is_async)
+        if t == "ListComp": return "<" + E.node(n.elt) + E.lst(n.generators)
+        if t == "SetComp": return "," + E.node(n.elt) + E.lst(n.generators)
+        if t == "DictComp": return ">" + E.node(n.key) + E.node(n.value) + E.lst(n.generators)
+        if t == "GeneratorExp": return "=" + E.node(n.elt) + E.lst(n.generators)
+        if t == "Starred": return "_" + E.node(n.value) + E.sng(type(n.ctx).__name__)
+        if t == "Await": return "'" + E.node(n.value)
+        if t == "Slice": return "`" + E.val(n.lower) + E.val(n.upper) + E.val(n.step)
+        if t == "Delete": return '"' + E.lst(n.targets)
+        if t == "Lambda": return "." + E.node(n.args) + E.node(n.body)
+        if t == "Assert": return "-" + E.node(n.test) + E.val(n.msg)
+        if t == "Raise": return "+" + E.val(n.exc) + E.val(n.cause)
+        return E.generic(n)
+
+def gcl1_encode(src):
+    tree = ast.parse(src)
+    D = Dict()
+    stream = Enc(D).node(tree)
+    header = json.dumps({"v": 2, "d": D.r}, separators=(",", ":"))
+    return header + "\n" + stream
+
+class Dec:
+    def __init__(self, T, s):
+        self.T = T; self.s = s; self.p = 0
+    def ch(self):
+        c = self.s[self.p]; self.p += 1; return c
+    def run(self):
+        s = self.p
+        while self.s[self.p] in IDCH: self.p += 1
+        return self.s[s:self.p]
+    def S(self):
+        assert self.s[self.p] == "d"; self.p += 1
+        return self.T[pid(self.run())]
+    def num(self):
+        if self.s[self.p] == "#": self.p += 1
+        s = self.p
+        while self.s[self.p] != ";": self.p += 1
+        v = ast.literal_eval(self.s[s:self.p]); self.p += 1
+        return v
+    def sng(self):
+        self.p += 1  # &
+        return getattr(ast, SINGLETONS[pid(self.run())])()
+    def const(self, c):
+        if c == "!": self.p += 0; return [None, True, False, Ellipsis][int(self.ch())]
+        if c == "#": return self.num()
+        if c == "d": return self.T[pid(self.run())]
+        if c == '"': return ast.literal_eval(self.T[pid(self.run())])
+        raise ValueError(c)
+    def val(self):
+        if self.s[self.p] == "!": self.p += 2; return None
+        return self.node(self.ch())
+    def lst(self):
+        self.p += 1  # (
+        n = pid(self.run())
+        return [self.item() for _ in range(n)]
+    def item(self):
+        c = self.s[self.p]
+        if c == "!": self.p += 2; return None
+        if c == "d": return self.S()
+        return self.node(self.ch())
+    def strs(self):
+        self.p += 1  # (
+        n = pid(self.run())
+        return [self.S() for _ in range(n)]
+    def generic(self):
+        cls = getattr(ast, self.S())
+        node = cls()
+        for f in cls._fields:
+            c = self.s[self.p]
+            if c == "(": v = self.lst()
+            elif c == "!": self.p += 2; v = None
+            elif c == "d": v = self.S()
+            elif c == "#": v = self.num()
+            elif c == "&": v = self.sng()
+            else: v = self.node(self.ch())
+            setattr(node, f, v)
+        return node
+    def node(self, c):
+        if c == "M": return ast.Module(body=self.lst(), type_ignores=[])
+        if c == "F":
+            name = self.T[pid(self.run())]; args = self.node(self.ch()); body = self.lst()
+            dec = self.lst(); ret = self.val()
+            return ast.FunctionDef(name=name, args=args, body=body,
+                                   decorator_list=dec, returns=ret, type_comment=None)
+        if c == "C": return ast.ClassDef(self.T[pid(self.run())], self.lst(), self.lst(), self.lst(), self.lst())
+        if c == "a": return ast.Assign(self.lst(), self.node(self.ch()))
+        if c == "u": return ast.AugAssign(target=self.node(self.ch()), op=self.sng(), value=self.node(self.ch()))
+        if c == "v": return ast.AnnAssign(target=self.node(self.ch()), annotation=self.node(self.ch()), value=self.val(), simple=self.num())
+        if c == "r": return ast.Return(self.val())
+        if c == "e": return ast.Expr(self.node(self.ch()))
+        if c == "c": return ast.Call(func=self.node(self.ch()), args=self.lst(), keywords=self.lst())
+        if c == "k":
+            a = None
+            if self.s[self.p] == "!": self.p += 2
+            else: a = self.T[pid(self.run())]
+            return ast.keyword(arg=a, value=self.node(self.ch()))
+        if c == "n": return ast.Name(id=self.T[pid(self.run())], ctx=ast.Load())
+        if c == "m": return ast.Name(id=self.T[pid(self.run())], ctx=ast.Store())
+        if c == "t": return ast.Attribute(value=self.node(self.ch()), attr=self.S(), ctx=self.sng())
+        if c == "x": return ast.Subscript(value=self.node(self.ch()), slice=self.node(self.ch()), ctx=self.sng())
+        if c == "o": return ast.Constant(self.const(self.ch()))
+        if c == "i": return ast.If(self.node(self.ch()), self.lst(), self.lst())
+        if c == "/": return ast.IfExp(test=self.node(self.ch()), body=self.node(self.ch()), orelse=self.node(self.ch()))
+        if c == ")": return ast.NamedExpr(target=self.node(self.ch()), value=self.node(self.ch()))
+        if c == "f": return ast.For(self.node(self.ch()), self.node(self.ch()), self.lst(), self.lst(), None)
+        if c == "w": return ast.While(self.node(self.ch()), self.lst(), self.lst())
+        if c == "z": return ast.Compare(left=self.node(self.ch()), ops=self.lst(), comparators=self.lst())
+        if c == "q": return ast.BinOp(left=self.node(self.ch()), op=self.sng(), right=self.node(self.ch()))
+        if c == "l": return ast.BoolOp(op=self.sng(), values=self.lst())
+        if c == "y": return ast.UnaryOp(op=self.sng(), operand=self.node(self.ch()))
+        if c == "j": return ast.Tuple(elts=self.lst(), ctx=self.sng())
+        if c == "g": return ast.List(elts=self.lst(), ctx=self.sng())
+        if c == "h":
+            elts = self.lst()
+            if self.s[self.p] == "&": ctx = self.sng()
+            else: self.p += 2; ctx = None
+            return ast.Set(elts=elts, ctx=ctx)
+        if c == "s": return ast.Dict(keys=self.lst(), values=self.lst())
+        if c == "p": return ast.JoinedStr(self.lst())
+        if c == "b": return ast.FormattedValue(value=self.node(self.ch()), conversion=self.num(), format_spec=self.val())
+        if c == "|": return ast.arguments(self.lst(), self.lst(), self.val(), self.lst(), self.lst(), self.val(), self.lst())
+        if c == "%": return ast.arg(arg=self.T[pid(self.run())], annotation=self.val(), type_comment=None)
+        if c == "$": return ast.Import(self.lst())
+        if c == "?":
+            m = None
+            if self.s[self.p] == "!": self.p += 2
+            else: m = self.T[pid(self.run())]
+            names = self.lst(); lvl = self.num()
+            return ast.ImportFrom(module=m, names=names, level=lvl)
+        if c == "@":
+            nm = self.S()
+            an = None
+            if self.s[self.p] == "!": self.p += 2
+            else: an = self.S()
+            return ast.alias(name=nm, asname=an)
+        if c == ":": return ast.Pass()
+        if c == ";": return ast.Break()
+        if c == "^": return ast.Continue()
+        if c == "~": return ast.Global(self.strs())
+        if c == "\\": return ast.Nonlocal(self.strs())
+        if c == "[": return ast.Try(self.lst(), self.lst(), self.lst(), self.lst())
+        if c == "]":
+            ty = self.val()
+            nm = None
+            if self.s[self.p] == "!": self.p += 2
+            else: nm = self.S()
+            return ast.ExceptHandler(type=ty, name=nm, body=self.lst())
+        if c == "{": return ast.With(self.lst(), self.lst())
+        if c == "}": return ast.withitem(context_expr=self.node(self.ch()), optional_vars=self.val())
+        if c == "*": return ast.comprehension(target=self.node(self.ch()), iter=self.node(self.ch()), ifs=self.lst(), is_async=self.num())
+        if c == "<": return ast.ListComp(self.node(self.ch()), self.lst())
+        if c == ",": return ast.SetComp(self.node(self.ch()), self.lst())
+        if c == ">": return ast.DictComp(self.node(self.ch()), self.node(self.ch()), self.lst())
+        if c == "=": return ast.GeneratorExp(self.node(self.ch()), self.lst())
+        if c == "_": return ast.Starred(value=self.node(self.ch()), ctx=self.sng())
+        if c == "'": return ast.Await(self.node(self.ch()))
+        if c == "`": return ast.Slice(lower=self.val(), upper=self.val(), step=self.val())
+        if c == '"': return ast.Delete(self.lst())
+        if c == ".": return ast.Lambda(self.node(self.ch()), self.node(self.ch()))
+        if c == "-": return ast.Assert(self.node(self.ch()), self.val())
+        if c == "+": return ast.Raise(self.val(), self.val())
+        if c == "\u00b5": return self.generic()
+        raise ValueError("unknown op: " + c)
+
+def gcl1_decode(data):
+    header, stream = data.split("\n", 1)
+    d = Dec(json.loads(header)["d"], stream + "\x00")
+    return d.node(d.ch())
+
+
+NODE_TABLE = set("Module FunctionDef ClassDef Assign AugAssign AnnAssign Return Expr Call keyword Name Attribute Subscript Constant If IfExp NamedExpr For While Compare BinOp BoolOp UnaryOp Tuple List Set Dict JoinedStr FormattedValue arguments arg Import ImportFrom alias Pass Break Continue Global Nonlocal Try ExceptHandler With withitem comprehension ListComp SetComp DictComp GeneratorExp Starred Await Slice Delete Lambda Assert Raise".split())
+
+if __name__ == "__main__":
+    root = "/app/.agents/skills"
+    files = []
+    for dp, dn, fn in os.walk(root):
+        dn[:] = [d for d in dn if d not in {"__pycache__", ".git", "data", "vault", "evals", "node_modules", "references", "assets"}]
+        for f in fn:
+            if f.endswith(".py"): files.append(os.path.join(dp, f))
+    raw = enc = ok = 0
+    t_enc = t_dec = t_parse = 0.0
+    fails, fallbacks = [], set()
+    for p in files:
+        src = open(p, encoding="utf-8", errors="replace").read()
+        if not src.strip(): continue
+        t0 = time.perf_counter(); data = gcl1_encode(src); t1 = time.perf_counter()
+        rebuilt = gcl1_decode(data); t2 = time.perf_counter()
+        same = ast.dump(rebuilt) == ast.dump(ast.parse(src)); t3 = time.perf_counter()
+        ok += same; t_enc += t1 - t0; t_dec += t2 - t1; t_parse += t3 - t2
+        if not same: fails.append(os.path.basename(p))
+        raw += len(src.encode()); enc += len(data.encode())
+        for n in ast.walk(ast.parse(src)):
+            if type(n).__name__ not in NODE_TABLE: fallbacks.add(type(n).__name__)
+    print(f"round-trip AST-equal: {ok}/{len(files)} .py files verified")
+    if fails: print("FAILS:", fails)
+    print(f"raw:   {raw:>9,} B")
+    print(f"GCL-1: {enc:>9,} B  = {100*enc/raw:.1f}% of raw")
+    print(f"generic-fallback node types used: {sorted(fallbacks) or 'none'}")
+    print(f"timing: encode {t_enc:.2f}s | decode {t_dec:.2f}s | ast.parse {t_parse:.2f}s")
+    data = gcl1_encode("issues = find_issues(staging, files)")
+    print("\nexample python: issues = find_issues(staging, files)")
+    print("example GCL-1: ", data)
+
+</script>
+<script>
+const DB = JSON.parse(document.getElementById("offline-db").textContent);
+const LS_PREFIX = "gcl1.db.", LS_EXTRA = "gcl1.extra.";
+let lastSync = null;
+
+function getDoc(name) {
+  try { const v = localStorage.getItem(LS_PREFIX + name); if (v) return v; } catch (e) {}
+  return DB[name].content;
+}
+function render() {
+  const list = document.getElementById("doclist");
+  list.innerHTML = "";
+  for (const [name, d] of Object.entries(DB)) {
+    const b = document.createElement("button");
+    const fresh = (() => { try { return localStorage.getItem(LS_PREFIX + name) !== null; } catch (e) { return false; } })();
+    b.innerHTML = (fresh ? '<span class="new">[updated]</span> ' : "") + d.title;
+    b.onclick = () => { document.getElementById("docview").textContent = getDoc(name); };
+    list.appendChild(b);
+  }
+  const extras = listExtras();
+  for (const k of extras) {
+    const b = document.createElement("button");
+    b.className = "new";
+    b.textContent = "[fetched offline] " + k;
+    b.onclick = () => { document.getElementById("docview").textContent = localStorage.getItem(LS_EXTRA + k); };
+    list.appendChild(b);
+  }
+  document.getElementById("extralist").textContent = extras.length ? ("Saved fetches: " + extras.length) : "";
+}
+function listExtras() {
+  const out = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(LS_EXTRA)) out.push(k.slice(LS_EXTRA.length)); } } catch (e) {}
+  return out;
+}
+async function refresh() {
+  const st = document.getElementById("status");
+  let checked = 0, updated = 0, failed = 0;
+  const jobs = Object.entries(DB).filter(([, d]) => d.source).map(([name, d]) =>
+    fetch(d.source, { cache: "no-store" }).then(r => { if (!r.ok) throw 0; return r.text(); })
+      .then(t => {
+        checked++;
+        if (t !== getDoc(name)) {
+          try { localStorage.setItem(LS_PREFIX + name, t); updated++; } catch (e) {}
+        }
+      }).catch(() => { failed++; })
+  );
+  await Promise.allSettled(jobs);
+  lastSync = new Date();
+  render();
+  st.textContent = "Offline database: " + Object.keys(DB).length + " embedded docs + " + listExtras().length + " saved fetches. " +
+    "Auto-updated: " + lastSync.toLocaleTimeString() + " (" + checked + " online sources checked, " + updated + " refreshed" +
+    (failed ? ", " + failed + " unreachable (offline ok)" : "") + "). Next check in 3 minutes.";
+}
+async function fetchExtra() {
+  const u = document.getElementById("fetchurl").value.trim();
+  const st = document.getElementById("status");
+  if (!u) return;
+  try {
+    const r = await fetch(u, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const t = await r.text();
+    localStorage.setItem(LS_EXTRA + u, t);
+    document.getElementById("docview").textContent = t;
+    render();
+    st.textContent = "Fetched and saved to the offline database: " + u;
+  } catch (e) {
+    st.textContent = "Could not fetch " + u + " (" + e + "). The site may block browser fetches (no CORS); open it in a tab instead.";
+  }
+}
+function tab(t) {
+  document.getElementById("tab-kb").className = t === "kb" ? "active" : "";
+  document.getElementById("tab-codec").className = t === "codec" ? "active" : "";
+  document.getElementById("sec-kb").className = t === "kb" ? "active" : "";
+  document.getElementById("sec-codec").className = t === "codec" ? "active" : "";
+  if (t === "codec") bootCodec();
+}
+
+let py = null, pyBooting = null;
+async function bootCodec() {
+  if (py) return;
+  if (pyBooting) return pyBooting;
+  document.getElementById("codecstats").textContent = "Loading Python engine (one-time, ~10 MB, free static download; no tokens or credits)...";
+  pyBooting = (async () => {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js";
+    await new Promise((ok, bad) => { s.onload = ok; s.onerror = bad; document.head.appendChild(s); });
+    py = await loadPyodide();
+    py.FS.writeFile("gcl1.py", document.getElementById("gclsrc").textContent);
+    await py.runPythonAsync(`
+import sys, ast, json, time
+sys.path.insert(0, "/")
+import gcl1
+
+def encode(code):
+    return gcl1.gcl1_encode(code)
+
+def decode(data):
+    tree = gcl1.gcl1_decode(data)
+    ast.fix_missing_locations(tree)
+    return ast.unparse(tree)
+
+def verify(code):
+    t0 = time.perf_counter()
+    data = gcl1.gcl1_encode(code)
+    t1 = time.perf_counter()
+    tree = gcl1.gcl1_decode(data)
+    t2 = time.perf_counter()
+    sb, gb = len(code.encode()), len(data.encode())
+    return json.dumps({"lossless": ast.dump(tree) == ast.dump(ast.parse(code)),
+                       "source_bytes": sb, "gcl_bytes": gb,
+                       "ratio_pct": round(100.0 * gb / max(1, sb), 1),
+                       "encode_ms": round((t1 - t0) * 1000, 1),
+                       "decode_ms": round((t2 - t1) * 1000, 1)})
+`);
+    for (const id of ["b-enc", "b-dec", "b-rt"]) document.getElementById(id).disabled = false;
+    document.getElementById("codecstats").textContent = "Codec ready (full Python engine + gcl1 loaded).";
+  })();
+  try { await pyBooting; } catch (e) {
+    document.getElementById("codecstats").textContent = "Engine load failed (" + e + "). Fully offline codec: run the bundled gcl1.py with local Python.";
+  }
+}
+function src() { return document.getElementById("src").value; }
+function cout(t) { document.getElementById("codecout").textContent = t; }
+function cstats(t) { document.getElementById("codecstats").textContent = t; }
+function doEncode() {
+  try {
+    const data = py.globals.get("encode")(src());
+    const r = JSON.parse(py.globals.get("verify")(src()));
+    cout(data);
+    cstats("encoded: " + r.source_bytes + " B source -> " + r.gcl_bytes + " B GCL-1 (" + r.ratio_pct + "% of source, lossless: " + r.lossless + ")");
+  } catch (e) { cstats(""); cout("Encode error: " + e); }
+}
+function doDecode() {
+  try {
+    cout(py.globals.get("decode")(src()));
+    cstats("decoded to Python source via ast.unparse");
+  } catch (e) { cstats(""); cout("Decode error: " + e); }
+}
+function doVerify() {
+  try {
+    const r = JSON.parse(py.globals.get("verify")(src()));
+    cout(JSON.stringify(r, null, 2));
+    cstats(r.lossless ? "VERIFIED LOSSLESS - AST-equal round-trip" : "MISMATCH DETECTED");
+  } catch (e) { cstats(""); cout("Verify error: " + e); }
+}
+function loadSample() {
+  document.getElementById("src").value = [
+    "def fib(n):",
+    "    a, b = 0, 1",
+    "    for _ in range(n):",
+    "        a, b = b, a + b",
+    "    return a",
+    "",
+    "print([fib(i) for i in range(10)])"
+  ].join("\n");
+}
+render();
+refresh();
+setInterval(refresh, 180000);
+</script>
+</body>
+</html>
