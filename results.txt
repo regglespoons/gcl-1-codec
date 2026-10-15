@@ -1,0 +1,9 @@
+GCL-1 SINGLE-CHARACTER CODEC - MEASURED RESULTS (Oct 14 2026, corpus: 55 non-empty Python files, 401,229 B, already minified)
+- Lossless round-trip: 55/55 files AST-equal (100%)
+- GCL-1 text: 350,154 B = 87.3% of minified raw
+- Load speed: decode 0.13s vs ast.parse 0.30s (2.3x faster)
+- GCL-0 naive structural tags: 122.5% of raw (LARGER) - structural tags cost more than they save
+- GCL-1 + gzip-9: 143,816 B vs raw + gzip-9: 124,011 B (116%) - semantic encoding alone loses to generic compression when stacked; the next 2x requires a paired entropy coder (Phase 2, the wasm+brotli approach)
+- Space separators: unnecessary (self-delimiting opcodes); spaces would add ~151k bytes to this corpus
+- New characters: unnecessary at byte level; UTF-8 makes a new codepoint 3 bytes vs 1 ASCII byte. Codec uses 45 single-char ASCII opcodes; base-33 id alphabet (C, F, M reserved as ops)
+Example: "issues = find_issues(staging, files)" -> M(1a(1m0cn1(2n2n3(0 + header dict
