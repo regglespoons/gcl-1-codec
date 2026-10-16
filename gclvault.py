@@ -4,6 +4,9 @@ findings: AES-256-GCM with a fresh 96-bit nonce per write; AAD binds the file
 name so renamed or swapped files fail authentication; envelope encryption
 (random per-file data key wrapped under a passphrase-derived KEK); Argon2id
 when argon2-cffi is installed, PBKDF2-SHA256 fallback. Armor GVLT1.
+decrypt also reads GC-format .gclenc files produced by the GCL-1 App Security
+tab (direct PBKDF2-SHA256 310k AES-256-GCM, name-bound AAD); --app-format
+encrypts into that app-compatible format, bridging the two vaults.
 Requires: pip install cryptography"""
 import argparse, base64, json, os, secrets, sys, tempfile
 
@@ -49,8 +52,10 @@ def encrypt_file(path, passphrase, out_path):
 
 def decrypt_file(path, passphrase, out_path):
     blob = open(path, "rb").read()
+    if blob[:2] == b"GC":           # .gclenc from the GCL-1 App Security tab (format v1)
+        return _decrypt_gc(blob, passphrase, out_path)
     if blob[:5] != b"GVLT1":
-        raise ValueError("not a GVLT1 file")
+        raise ValueError("not a GVLT1 or GC (.gclenc) file")
     hlen = int.from_bytes(blob[5:9], "little")
     header = json.loads(blob[9:9 + hlen])
     ct = blob[9 + hlen:]
@@ -60,6 +65,29 @@ def decrypt_file(path, passphrase, out_path):
                                    b"gclvault-keywrap-v1")
     pt = AESGCM(data_key).decrypt(base64.b64decode(header["data_iv"]), ct,
                                  header["name"].encode())   # AAD: name binding
+    with open(out_path, "wb") as f:
+        f.write(pt)
+    return len(pt)
+
+def encrypt_file_gc(path, passphrase, out_path):
+    """App-compatible .gclenc (GC magic): direct PBKDF2-SHA256 310k AES-256-GCM,
+    file name bound as AAD - the format the GCL-1 App Security tab reads/writes."""
+    name = os.path.basename(path)
+    salt, iv = secrets.token_bytes(32), secrets.token_bytes(12)
+    key = derive_kek(passphrase, salt, "pbkdf2")
+    ct = AESGCM(key).encrypt(iv, open(path, "rb").read(), name.encode())
+    meta = json.dumps({"v": 1, "name": name, "salt": base64.b64encode(salt).decode(),
+                       "iv": base64.b64encode(iv).decode()}).encode()
+    with open(out_path, "wb") as f:
+        f.write(b"GC" + len(meta).to_bytes(4, "little") + meta + ct)
+    return len(ct), "pbkdf2"
+
+def _decrypt_gc(blob, passphrase, out_path):
+    mlen = int.from_bytes(blob[2:6], "little")
+    meta = json.loads(blob[6:6 + mlen])
+    ct = blob[6 + mlen:]
+    key = derive_kek(passphrase, base64.b64decode(meta["salt"]), "pbkdf2")
+    pt = AESGCM(key).decrypt(base64.b64decode(meta["iv"]), ct, meta["name"].encode())
     with open(out_path, "wb") as f:
         f.write(pt)
     return len(pt)
@@ -82,13 +110,23 @@ def selftest():
         decrypt_file(enc, "test-pass", dec + "y"); ok_tamper = False
     except Exception:
         ok_tamper = True
+    gc_enc, gc_dec = os.path.join(d, "a2.gclenc"), os.path.join(d, "c.txt")
+    encrypt_file_gc(src, "test-pass", gc_enc)
+    decrypt_file(gc_enc, "test-pass", gc_dec)
+    ok_gc = open(src, "rb").read() == open(gc_dec, "rb").read()
+    try:
+        decrypt_file(gc_enc, "wrong", dec + "z"); ok_gc_auth = False
+    except Exception:
+        ok_gc_auth = True
     print("lossless:", ok_rt, "| randomized:", ok_rand, "| wrong-pass rejected:", ok_auth,
-          "| tamper rejected:", ok_tamper, "| KDF:", mode)
-    return ok_rt and ok_rand and ok_auth and ok_tamper
+          "| tamper rejected:", ok_tamper, "| app-format:", ok_gc and ok_gc_auth, "| KDF:", mode)
+    return ok_rt and ok_rand and ok_auth and ok_tamper and ok_gc and ok_gc_auth
 
 def main():
     ap = argparse.ArgumentParser(description="GCL Vault: AES-256-GCM file encryption at rest")
     ap.add_argument("cmd", choices=["encrypt", "decrypt", "selftest"])
+    ap.add_argument("--app-format", action="store_true",
+                    help="encrypt in the GCL-1 App Security tab .gclenc format (GC v1)")
     ap.add_argument("file", nargs="?")
     ap.add_argument("-o", "--out")
     ap.add_argument("-p", "--passphrase", required=False)
@@ -100,7 +138,8 @@ def main():
     out = a.out or (a.file + ".gclenc" if a.cmd == "encrypt" else
                    "recovered-" + os.path.basename(a.file).removesuffix(".gclenc"))
     if a.cmd == "encrypt":
-        n, mode = encrypt_file(a.file, a.passphrase, out)
+        fn = encrypt_file_gc if a.app_format else encrypt_file
+        n, mode = fn(a.file, a.passphrase, out)
         print("encrypted ->", out, f"({n} B ciphertext, KDF {mode})")
     else:
         n = decrypt_file(a.file, a.passphrase, out)

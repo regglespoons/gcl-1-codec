@@ -69,7 +69,9 @@ class Enc:
         if t == "Call": return "c" + E.node(n.func) + E.lst(n.args) + E.lst(n.keywords)
         if t == "keyword":
             return "k" + (u36(E.D.id(n.arg)) if n.arg else "!0") + E.node(n.value)
-        if t == "Name": return ("n" if isinstance(n.ctx, ast.Load) else "m") + u36(E.D.id(n.id))
+        if t == "Name":
+            if isinstance(n.ctx, ast.Del): return E.generic(n)  # Del has no 1-char opcode; lossless via µ-fallback
+            return ("n" if isinstance(n.ctx, ast.Load) else "m") + u36(E.D.id(n.id))
         if t == "Attribute": return "t" + E.node(n.value) + E.S(n.attr) + E.sng(type(n.ctx).__name__)
         if t == "Subscript": return "x" + E.node(n.value) + E.node(n.slice) + E.sng(type(n.ctx).__name__)
         if t == "Constant": return "o" + E.const(n.value)
@@ -274,7 +276,7 @@ def gcl1_decode(data):
     return d.node(d.ch())
 
 
-NODE_TABLE = set("Module FunctionDef ClassDef Assign AugAssign AnnAssign Return Expr Call keyword Name Attribute Subscript Constant If IfExp NamedExpr For While Compare BinOp BoolOp UnaryOp Tuple List Set Dict JoinedStr FormattedValue arguments arg Import ImportFrom alias Pass Break Continue Global Nonlocal Try ExceptHandler With withitem comprehension ListComp SetComp DictComp GeneratorExp Starred Await Slice Delete Lambda Assert Raise".split())
+NODE_TABLE = set(SINGLETONS) | set("Module FunctionDef ClassDef Assign AugAssign AnnAssign Return Expr Call keyword Name Attribute Subscript Constant If IfExp NamedExpr For While Compare BinOp BoolOp UnaryOp Tuple List Set Dict JoinedStr FormattedValue arguments arg Import ImportFrom alias Pass Break Continue Global Nonlocal Try ExceptHandler With withitem comprehension ListComp SetComp DictComp GeneratorExp Starred Await Slice Delete Lambda Assert Raise".split())
 
 if __name__ == "__main__":
     root = "/app/.agents/skills"
@@ -289,13 +291,14 @@ if __name__ == "__main__":
     for p in files:
         src = open(p, encoding="utf-8", errors="replace").read()
         if not src.strip(): continue
+        tree = ast.parse(src)
         t0 = time.perf_counter(); data = gcl1_encode(src); t1 = time.perf_counter()
         rebuilt = gcl1_decode(data); t2 = time.perf_counter()
-        same = ast.dump(rebuilt) == ast.dump(ast.parse(src)); t3 = time.perf_counter()
+        same = ast.dump(rebuilt) == ast.dump(tree); t3 = time.perf_counter()
         ok += same; t_enc += t1 - t0; t_dec += t2 - t1; t_parse += t3 - t2
         if not same: fails.append(os.path.basename(p))
         raw += len(src.encode()); enc += len(data.encode())
-        for n in ast.walk(ast.parse(src)):
+        for n in ast.walk(tree):
             if type(n).__name__ not in NODE_TABLE: fallbacks.add(type(n).__name__)
     print(f"round-trip AST-equal: {ok}/{len(files)} .py files verified")
     if fails: print("FAILS:", fails)

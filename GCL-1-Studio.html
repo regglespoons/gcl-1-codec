@@ -2,51 +2,48 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>GCL-1 Codec Studio</title>
-<style>
-  :root { color-scheme: dark; }
-  * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #0d1117; color: #d8e0e8; }
-  header { padding: 20px 28px 8px; border-bottom: 1px solid #1e2630; }
-  h1 { margin: 0 0 4px; font-size: 22px; color: #e8eef4; }
-  header p { margin: 0; color: #8a97a6; font-size: 13px; }
-  #status { padding: 10px 28px; font-size: 13px; color: #7ec8a2; border-bottom: 1px solid #1e2630; }
-  main { padding: 18px 28px; }
-  textarea { width: 100%; height: 220px; background: #10161d; color: #d8e0e8; border: 1px solid #2a3644; border-radius: 8px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; resize: vertical; }
-  .btns { margin: 12px 0; display: flex; gap: 8px; flex-wrap: wrap; }
-  button { background: #1f6f4a; color: #eafff3; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; }
-  button:hover { background: #268a5c; }
-  button.alt { background: #233042; color: #cfd9e4; }
-  button.alt:hover { background: #2c3c52; }
-  #stats { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 13px; color: #7ec8a2; min-height: 20px; margin: 0 0 8px; }
-  #out { white-space: pre-wrap; word-break: break-all; background: #10161d; border: 1px solid #2a3644; border-radius: 8px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; min-height: 80px; max-height: 320px; overflow: auto; }
-  footer { padding: 14px 28px 24px; color: #6d7987; font-size: 12px; border-top: 1px solid #1e2630; }
-  footer a { color: #6fa8d8; }
-</style>
-</head>
+<title>GCL-1 Codec Studio</title><style>:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Segoe UI", system-ui, sans-serif; background: #0d1117; color: #d8e0e8; }
+header { padding: 20px 28px 8px; border-bottom: 1px solid #1e2630; }
+h1 { margin: 0 0 4px; font-size: 22px; color: #e8eef4; }
+header p { margin: 0; color: #8a97a6; font-size: 13px; }
+#status { padding: 10px 28px; font-size: 13px; color: #7ec8a2; border-bottom: 1px solid #1e2630; }
+main { padding: 18px 28px; }
+textarea { width: 100%; height: 220px; background: #10161d; color: #d8e0e8; border: 1px solid #2a3644; border-radius: 8px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; resize: vertical; }
+.btns { margin: 12px 0; display: flex; gap: 8px; flex-wrap: wrap; }
+button { background: #1f6f4a; color: #eafff3; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 14px; cursor: pointer; }
+button:hover { background: #268a5c; }
+button.alt { background: #233042; color: #cfd9e4; }
+button.alt:hover { background: #2c3c52; }
+#stats { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 13px; color: #7ec8a2; min-height: 20px; margin: 0 0 8px; }
+#out { white-space: pre-wrap; word-break: break-all; background: #10161d; border: 1px solid #2a3644; border-radius: 8px; padding: 12px; font-family: Consolas, monospace; font-size: 13px; min-height: 80px; max-height: 320px; overflow: auto; }
+footer { padding: 14px 28px 24px; color: #6d7987; font-size: 12px; border-top: 1px solid #1e2630; }
+footer a { color: #6fa8d8; }
+</style></head>
 <body>
 <header>
-  <h1>GCL-1 Codec Studio</h1>
-  <p>Single-character opcode serialization for Python &mdash; Phase 1 prototype of the GCL project. Lossless, self-delimiting, self-describing.</p>
+<h1>GCL-1 Codec Studio</h1>
+<p>Single-character opcode serialization for Python &mdash; Phase 1 prototype of the GCL project. Lossless, self-delimiting, self-describing.</p>
 </header>
 <div id="status">Loading Python runtime (first load ~10 MB, then instant)...</div>
 <main>
-  <p style="color:#8a97a6;font-size:13px">Python source (to encode) or GCL-1 stream (to decode):</p>
-  <textarea id="src"></textarea>
-  <div class="btns">
-    <button id="b-enc" onclick="doEncode()" disabled>Encode</button>
-    <button id="b-dec" onclick="doDecode()" disabled>Decode</button>
-    <button id="b-rt" onclick="doVerify()" disabled>Round-trip verify</button>
-    <button class="alt" onclick="loadSample()">Load sample</button>
-    <button class="alt" onclick="copyOut()">Copy output</button>
-  </div>
-  <div id="stats"></div>
-  <div id="out">(output appears here)</div>
+<p style="color:#8a97a6;font-size:13px">Python source (to encode) or GCL-1 stream (to decode):</p>
+<textarea id="src"></textarea>
+<div class="btns">
+<button id="b-enc" onclick="doEncode()" disabled>Encode</button>
+<button id="b-dec" onclick="doDecode()" disabled>Decode</button>
+<button id="b-rt" onclick="doVerify()" disabled>Round-trip verify</button>
+<button class="alt" onclick="loadSample()">Load sample</button>
+<button class="alt" onclick="copyOut()">Copy output</button>
+</div>
+<div id="stats"></div>
+<div id="out">(output appears here)</div>
 </main>
 <footer>
-  Source and measurements: <a href="https://github.com/regglespoons/gcl-1-codec">github.com/regglespoons/gcl-1-codec</a> &middot;
-  The full codec (this file uses the real gcl1.py, unmodified, in a Python-WebAssembly runtime) &middot;
-  To build a native gcl1.exe on Windows: install Python, then run the included Make-Windows-EXE.bat.
+Source and measurements: <a href="https://github.com/regglespoons/gcl-1-codec">github.com/regglespoons/gcl-1-codec</a> &middot;
+The full codec (this file uses the real gcl1.py, unmodified, in a Python-WebAssembly runtime) &middot;
+To build a native gcl1.exe on Windows: install Python, then run the included Make-Windows-EXE.bat.
 </footer>
 <script type="text/x-python" id="gclsrc">
 import ast, json, os, time
@@ -120,7 +117,9 @@ class Enc:
         if t == "Call": return "c" + E.node(n.func) + E.lst(n.args) + E.lst(n.keywords)
         if t == "keyword":
             return "k" + (u36(E.D.id(n.arg)) if n.arg else "!0") + E.node(n.value)
-        if t == "Name": return ("n" if isinstance(n.ctx, ast.Load) else "m") + u36(E.D.id(n.id))
+        if t == "Name":
+            if isinstance(n.ctx, ast.Del): return E.generic(n)  # Del has no 1-char opcode; lossless via µ-fallback
+            return ("n" if isinstance(n.ctx, ast.Load) else "m") + u36(E.D.id(n.id))
         if t == "Attribute": return "t" + E.node(n.value) + E.S(n.attr) + E.sng(type(n.ctx).__name__)
         if t == "Subscript": return "x" + E.node(n.value) + E.node(n.slice) + E.sng(type(n.ctx).__name__)
         if t == "Constant": return "o" + E.const(n.value)
@@ -325,7 +324,7 @@ def gcl1_decode(data):
     return d.node(d.ch())
 
 
-NODE_TABLE = set("Module FunctionDef ClassDef Assign AugAssign AnnAssign Return Expr Call keyword Name Attribute Subscript Constant If IfExp NamedExpr For While Compare BinOp BoolOp UnaryOp Tuple List Set Dict JoinedStr FormattedValue arguments arg Import ImportFrom alias Pass Break Continue Global Nonlocal Try ExceptHandler With withitem comprehension ListComp SetComp DictComp GeneratorExp Starred Await Slice Delete Lambda Assert Raise".split())
+NODE_TABLE = set(SINGLETONS) | set("Module FunctionDef ClassDef Assign AugAssign AnnAssign Return Expr Call keyword Name Attribute Subscript Constant If IfExp NamedExpr For While Compare BinOp BoolOp UnaryOp Tuple List Set Dict JoinedStr FormattedValue arguments arg Import ImportFrom alias Pass Break Continue Global Nonlocal Try ExceptHandler With withitem comprehension ListComp SetComp DictComp GeneratorExp Starred Await Slice Delete Lambda Assert Raise".split())
 
 if __name__ == "__main__":
     root = "/app/.agents/skills"
@@ -340,13 +339,14 @@ if __name__ == "__main__":
     for p in files:
         src = open(p, encoding="utf-8", errors="replace").read()
         if not src.strip(): continue
+        tree = ast.parse(src)
         t0 = time.perf_counter(); data = gcl1_encode(src); t1 = time.perf_counter()
         rebuilt = gcl1_decode(data); t2 = time.perf_counter()
-        same = ast.dump(rebuilt) == ast.dump(ast.parse(src)); t3 = time.perf_counter()
+        same = ast.dump(rebuilt) == ast.dump(tree); t3 = time.perf_counter()
         ok += same; t_enc += t1 - t0; t_dec += t2 - t1; t_parse += t3 - t2
         if not same: fails.append(os.path.basename(p))
         raw += len(src.encode()); enc += len(data.encode())
-        for n in ast.walk(ast.parse(src)):
+        for n in ast.walk(tree):
             if type(n).__name__ not in NODE_TABLE: fallbacks.add(type(n).__name__)
     print(f"round-trip AST-equal: {ok}/{len(files)} .py files verified")
     if fails: print("FAILS:", fails)
@@ -357,16 +357,12 @@ if __name__ == "__main__":
     data = gcl1_encode("issues = find_issues(staging, files)")
     print("\nexample python: issues = find_issues(staging, files)")
     print("example GCL-1: ", data)
-
-</script>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
-<script>
-let py = null;
+</script><script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script><script>let py = null;
 async function boot() {
-  try {
-    py = await loadPyodide();
-    py.FS.writeFile("gcl1.py", document.getElementById("gclsrc").textContent);
-    await py.runPythonAsync(`
+try {
+py = await loadPyodide();
+py.FS.writeFile("gcl1.py", document.getElementById("gclsrc").textContent);
+await py.runPythonAsync(`
 import sys, ast, json, time
 sys.path.insert(0, "/")
 import gcl1
@@ -393,52 +389,51 @@ def verify(code):
                        "encode_ms": round((t1 - t0) * 1000, 1),
                        "decode_ms": round((t2 - t1) * 1000, 1)})
 `);
-    document.getElementById("status").textContent = "Ready - full Python runtime + gcl1 codec loaded.";
-    for (const id of ["b-enc", "b-dec", "b-rt"]) document.getElementById(id).disabled = false;
-  } catch (e) {
-    document.getElementById("status").textContent = "Runtime failed to load: " + e + " (internet required on first load)";
-  }
+document.getElementById("status").textContent = "Ready - full Python runtime + gcl1 codec loaded.";
+for (const id of ["b-enc", "b-dec", "b-rt"]) document.getElementById(id).disabled = false;
+} catch (e) {
+document.getElementById("status").textContent = "Runtime failed to load: " + e + " (internet required on first load)";
+}
 }
 function src() { return document.getElementById("src").value; }
 function out(t) { document.getElementById("out").textContent = t; }
 function stats(t) { document.getElementById("stats").textContent = t; }
 function doEncode() {
-  try {
-    const data = py.globals.get("encode")(src());
-    const r = JSON.parse(py.globals.get("verify")(src()));
-    out(data);
-    stats("encoded: " + r.source_bytes + " B source -> " + r.gcl_bytes + " B GCL-1 (" + r.ratio_pct + "% of source, lossless round-trip: " + r.lossless + ")");
-  } catch (e) { stats(""); out("Encode error: " + e); }
+try {
+const data = py.globals.get("encode")(src());
+const r = JSON.parse(py.globals.get("verify")(src()));
+out(data);
+stats("encoded: " + r.source_bytes + " B source -> " + r.gcl_bytes + " B GCL-1 (" + r.ratio_pct + "% of source, lossless round-trip: " + r.lossless + ")");
+} catch (e) { stats(""); out("Encode error: " + e); }
 }
 function doDecode() {
-  try {
-    out(py.globals.get("decode")(src()));
-    stats("decoded to Python source via ast.unparse");
-  } catch (e) { stats(""); out("Decode error: " + e); }
+try {
+out(py.globals.get("decode")(src()));
+stats("decoded to Python source via ast.unparse");
+} catch (e) { stats(""); out("Decode error: " + e); }
 }
 function doVerify() {
-  try {
-    const r = JSON.parse(py.globals.get("verify")(src()));
-    out(JSON.stringify(r, null, 2));
-    stats(r.lossless ? "VERIFIED LOSSLESS - AST-equal round-trip" : "MISMATCH DETECTED");
-  } catch (e) { stats(""); out("Verify error: " + e); }
+try {
+const r = JSON.parse(py.globals.get("verify")(src()));
+out(JSON.stringify(r, null, 2));
+stats(r.lossless ? "VERIFIED LOSSLESS - AST-equal round-trip" : "MISMATCH DETECTED");
+} catch (e) { stats(""); out("Verify error: " + e); }
 }
 function loadSample() {
-  document.getElementById("src").value = [
-    "def fib(n):",
-    "    a, b = 0, 1",
-    "    for _ in range(n):",
-    "        a, b = b, a + b",
-    "    return a",
-    "",
-    "print([fib(i) for i in range(10)])"
-  ].join("\n");
+document.getElementById("src").value = [
+"def fib(n):",
+"    a, b = 0, 1",
+"    for _ in range(n):",
+"        a, b = b, a + b",
+"    return a",
+"",
+"print([fib(i) for i in range(10)])"
+].join("\n");
 }
 function copyOut() {
-  const t = document.getElementById("out").textContent;
-  if (t && !t.startsWith("(")) navigator.clipboard.writeText(t);
+const t = document.getElementById("out").textContent;
+if (t && !t.startsWith("(")) navigator.clipboard.writeText(t);
 }
 boot();
-</script>
-</body>
+</script></body>
 </html>
